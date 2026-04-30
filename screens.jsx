@@ -1,0 +1,473 @@
+// screens.jsx — Minko screens: Home/Globe, Log Entry, Place Detail, Profile, Friends Globe
+
+const { useState, useEffect, useRef } = React;
+
+// ─────────────────────────────────────────────────────────────
+// Shared visual primitives
+// ─────────────────────────────────────────────────────────────
+const SERIF = '"Cormorant Garamond", "Iowan Old Style", "Hoefler Text", Georgia, serif';
+const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif';
+
+const Stars = ({ n, size = 14, color = '#c89e54' }) => (
+  <span style={{ display: 'inline-flex', gap: 2 }}>
+    {[1,2,3,4,5].map(i => (
+      <MinkoIcon key={i} name={i <= n ? 'star' : 'star-outline'} size={size} color={i <= n ? color : 'rgba(0,0,0,0.18)'} strokeWidth={1.4}/>
+    ))}
+  </span>
+);
+
+const CategoryChip = ({ category, color, dark }) => {
+  const map = { restaurant: 'Restaurant', hotel: 'Hotel', attraction: 'Attraction', experience: 'Experience' };
+  const c = color || (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[category]) || '#4f5bd5';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      fontSize: 11, fontFamily: SANS, fontWeight: 500, letterSpacing: 0.4, textTransform: 'uppercase',
+      color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)',
+    }}>
+      <MinkoIcon name={category} size={12} strokeWidth={1.6} color={c}/>
+      {map[category]}
+    </span>
+  );
+};
+
+const Wordmark = ({ dark, size = 22 }) => (
+  <span style={{
+    fontFamily: SERIF, fontSize: size, fontWeight: 500, fontStyle: 'italic',
+    color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3,
+  }}>minko</span>
+);
+
+const Avatar = ({ name, color, size = 28, ring }) => (
+  <div style={{
+    width: size, height: size, borderRadius: '50%',
+    background: color, color: 'white',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: SANS, fontSize: size * 0.42, fontWeight: 600,
+    border: ring ? `2px solid ${ring}` : '2px solid white',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+    flexShrink: 0,
+  }}>{name?.[0]}</div>
+);
+
+// Floating glass surface used for top search & FAB
+const GlassSurface = ({ children, style, dark, radius = 999 }) => (
+  <div style={{
+    position: 'relative', borderRadius: radius,
+    background: dark ? 'rgba(28,30,42,0.75)' : 'rgba(255,255,255,0.92)',
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    boxShadow: dark
+      ? '0 2px 8px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.25), inset 0 0.5px 0 rgba(255,255,255,0.08)'
+      : '0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(20,30,60,0.10), inset 0 0.5px 0 rgba(255,255,255,0.6)',
+    border: dark ? '0.5px solid rgba(255,255,255,0.08)' : '0.5px solid rgba(0,0,0,0.04)',
+    ...style,
+  }}>{children}</div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// Bottom nav (always present, floats over map)
+// ─────────────────────────────────────────────────────────────
+function BottomNav({ active, onChange, accent, dark, onLog }) {
+  const items = [
+    { id: 'home', icon: 'globe', label: 'World' },
+    { id: 'friends', icon: 'friends', label: 'Friends' },
+    { id: null, icon: 'plus', label: 'Log', isFab: true },
+    { id: 'profile', icon: 'user', label: 'You' },
+  ];
+  return (
+    <div style={{
+      position: 'absolute', left: 14, right: 14, bottom: 26, zIndex: 30,
+      display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box',
+    }}>
+      <GlassSurface dark={dark} radius={28} style={{ flex: 1, minWidth: 0, padding: '8px 6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
+          {items.filter(i => !i.isFab).map(it => {
+            const a = active === it.id;
+            return (
+              <button key={it.label} onClick={() => onChange(it.id)} style={{
+                background: 'transparent', border: 0, padding: '6px 10px', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                color: a ? accent : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
+              }}>
+                <MinkoIcon name={it.icon} size={22} strokeWidth={a ? 2 : 1.6}/>
+                <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: a ? 600 : 500, letterSpacing: 0.3 }}>{it.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </GlassSurface>
+      <button onClick={onLog} style={{
+        width: 54, height: 54, borderRadius: '50%', border: 0, cursor: 'pointer',
+        background: accent, color: 'white',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `0 4px 14px ${accent}55, 0 2px 4px rgba(0,0,0,0.15)`,
+        flexShrink: 0,
+      }}>
+        <MinkoIcon name="plus" size={24} strokeWidth={2.2}/>
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bottom sheet wrapper
+// ─────────────────────────────────────────────────────────────
+function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag = false }) {
+  return (
+    <>
+      {open && (
+        <div onClick={onClose} style={{
+          position: 'absolute', inset: 0, zIndex: 40,
+          background: 'rgba(15,20,40,0.18)', backdropFilter: 'blur(2px)',
+          animation: 'minko-fade-in 0.2s ease',
+        }}/>
+      )}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 41,
+        background: dark ? '#1c1d28' : '#faf8f3',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',
+        transform: open ? 'translateY(0)' : 'translateY(110%)',
+        transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+        maxHeight: '85%', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+        </div>
+        <div style={{ overflow: 'auto', flex: 1 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Top search bar (floats over map)
+// ─────────────────────────────────────────────────────────────
+function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
+  return (
+    <div style={{
+      position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30,
+      display: 'flex', gap: 10, alignItems: 'center',
+    }}>
+      <GlassSurface dark={dark} radius={26} style={{ flex: 1, height: 52, padding: '0 10px 0 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Wordmark dark={dark} size={22}/>
+        <div onClick={onTap} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer' }}>
+          <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
+          <span style={{ fontFamily: SANS, fontSize: 14.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>{placeholder}</span>
+        </div>
+        <Avatar name="You" color="#7a6ca3" size={32}/>
+      </GlassSurface>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Category legend (small color-key chip near top)
+// ─────────────────────────────────────────────────────────────
+function CategoryLegend({ dark }) {
+  const cats = [
+    { id: 'restaurant', label: 'Eat' },
+    { id: 'hotel',      label: 'Stay' },
+    { id: 'attraction', label: 'See' },
+    { id: 'experience', label: 'Do' },
+  ];
+  const colors = window.MINKO_CATEGORY_COLORS || {};
+  return (
+    <div style={{ position: 'absolute', top: 124, right: 12, zIndex: 25 }}>
+      <GlassSurface dark={dark} radius={999} style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+        {cats.map(c => (
+          <div key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors[c.id], boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.15)' }}/>
+            <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 500, letterSpacing: 0.2,
+              color: dark ? 'rgba(255,255,255,0.75)' : 'rgba(20,20,30,0.65)' }}>{c.label}</span>
+          </div>
+        ))}
+      </GlassSurface>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// HOME / GLOBE SCREEN
+// ─────────────────────────────────────────────────────────────
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog }) {
+  const cat = window.MINKO_CATEGORY_COLORS;
+  const pins = MINKO_ENTRIES.map(e => ({
+    id: e.id, lon: e.lon, lat: e.lat,
+    color: cat[e.category] || accent,
+    photo: variant === 'photo' ? e.photos?.[0] : undefined,
+  }));
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <MinkoGlobe dark={dark} accent={accent}
+        pins={pins}
+        activePinId={activePinId}
+        onPinClick={onPin}
+      />
+      <TopSearch dark={dark}/>
+      <CategoryLegend dark={dark}/>
+      <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PLACE DETAIL (bottom sheet content)
+// ─────────────────────────────────────────────────────────────
+function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend }) {
+  const [liked, setLiked] = useState(entry?.likedByMe || false);
+  const [likeCount, setLikeCount] = useState(entry?.likes || 0);
+  const [commentDraft, setCommentDraft] = useState('');
+  useEffect(() => {
+    setLiked(entry?.likedByMe || false);
+    setLikeCount(entry?.likes || 0);
+    setCommentDraft('');
+  }, [entry?.id]);
+  if (!entry) return null;
+  const friendLookup = (id) => MINKO_FRIENDS.find(f => f.id === id);
+  const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[entry.category]) || accent;
+  const toggleLike = () => {
+    setLiked(v => {
+      setLikeCount(c => c + (v ? -1 : 1));
+      return !v;
+    });
+  };
+  return (
+    <div style={{ padding: '6px 0 24px' }}>
+      {/* Hero photo */}
+      {entry.photos?.[0] && (
+        <div style={{ position: 'relative', height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden' }}>
+          <img src={entry.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+          {entry.photos.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 10, right: 10, padding: '4px 10px', borderRadius: 999,
+              background: 'rgba(0,0,0,0.55)', color: 'white', fontFamily: SANS, fontSize: 11, fontWeight: 500 }}>
+              1/{entry.photos.length}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ padding: '18px 20px 0' }}>
+        {friendMode && friend && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Avatar name={friend.name} color={friend.color} size={22}/>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)' }}>
+              <b style={{ fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{friend.name}</b> logged this
+            </span>
+          </div>
+        )}
+        <CategoryChip category={entry.category} dark={dark}/>
+        <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: '4px 0 6px',
+          color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{entry.place}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Stars n={entry.rating} size={15}/>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>
+            {entry.location} · {entry.date}
+          </span>
+        </div>
+
+        {entry.note && (
+          <p style={{
+            fontFamily: SERIF, fontSize: 17, lineHeight: 1.45, fontWeight: 400,
+            color: dark ? 'rgba(245,241,232,0.85)' : 'rgba(26,26,46,0.78)',
+            margin: '18px 0 6px', textWrap: 'pretty',
+            paddingLeft: 14, borderLeft: `2px solid ${catColor}55`,
+          }}>
+            {entry.note}
+          </p>
+        )}
+
+        {/* Geographic tag row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 18,
+          fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
+          <MinkoIcon name="pin" size={14} color={catColor} strokeWidth={1.8}/>
+          43.6532°N, 79.3832°W
+        </div>
+
+        {/* Friends-have-been row */}
+        {!friendMode && friendsAtPlace?.length > 0 && (
+          <div style={{ marginTop: 22, padding: '14px 14px',
+            background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)',
+            borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex' }}>
+                {friendsAtPlace.map((id, i) => {
+                  const f = friendLookup(id);
+                  return <div key={id} style={{ marginLeft: i ? -8 : 0 }}><Avatar name={f.name} color={f.color} size={26}/></div>;
+                })}
+              </div>
+              <span style={{ fontFamily: SANS, fontSize: 13, color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+                <b style={{ fontWeight: 600 }}>{friendsAtPlace.length} friends</b> have been here
+              </span>
+            </div>
+            <MinkoIcon name="chevron-right" size={18} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)'}/>
+          </div>
+        )}
+
+        {/* Likes + comments — social aspect */}
+        <div style={{ marginTop: 22, paddingTop: 18,
+          borderTop: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button onClick={toggleLike} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '7px 12px 7px 10px', borderRadius: 999, cursor: 'pointer',
+              border: liked ? `1px solid ${catColor}` : (dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)'),
+              background: liked ? `${catColor}18` : 'transparent',
+              color: liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e'),
+              fontFamily: SANS, fontSize: 13, fontWeight: 600,
+              transition: 'all 0.15s ease',
+            }}>
+              <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.8}/>
+              {likeCount}
+            </button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: SANS, fontSize: 13, fontWeight: 500,
+              color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
+              <MinkoIcon name="comment" size={15} strokeWidth={1.7}/>
+              {entry.comments?.length || 0} {entry.comments?.length === 1 ? 'comment' : 'comments'}
+            </div>
+            {/* liked-by avatars */}
+            {likeCount > 0 && (
+              <div style={{ display: 'flex', marginLeft: 'auto' }}>
+                {[friendLookup('f1'), friendLookup('f3'), friendLookup('f4')].slice(0, Math.min(3, likeCount)).filter(Boolean).map((f, i) => (
+                  <div key={f.id} style={{ marginLeft: i ? -7 : 0 }}>
+                    <Avatar name={f.name} color={f.color} size={20}/>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {entry.comments && entry.comments.length > 0 && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {entry.comments.map(c => {
+                const f = friendLookup(c.friendId);
+                if (!f) return null;
+                return (
+                  <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <Avatar name={f.name} color={f.color} size={28}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{f.name}</span>
+                        <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>{c.date}</span>
+                      </div>
+                      <div style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.35, marginTop: 2,
+                        color: dark ? 'rgba(245,241,232,0.85)' : 'rgba(26,26,46,0.8)', textWrap: 'pretty' }}>
+                        {c.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Comment composer */}
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <Avatar name="You" color="#7a6ca3" size={28}/>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                placeholder={friendMode ? `Reply to ${friend?.name || 'them'}…` : 'Add a comment…'}
+                style={{
+                  width: '100%', height: 38, padding: '0 44px 0 14px', boxSizing: 'border-box',
+                  borderRadius: 999, border: 0, outline: 'none',
+                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+                  fontFamily: SANS, fontSize: 13.5, color: dark ? '#f5f1e8' : '#1a1a2e',
+                }}/>
+              {commentDraft && (
+                <button onClick={() => setCommentDraft('')} style={{
+                  position: 'absolute', right: 4, top: 4, width: 30, height: 30, borderRadius: '50%',
+                  background: catColor, color: 'white', border: 0, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <MinkoIcon name="send" size={14} color="white" strokeWidth={2}/>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        {!friendMode && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+            <button style={{
+              flex: 1, height: 48, borderRadius: 12, border: 0, cursor: 'pointer',
+              background: accent, color: 'white',
+              fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              <MinkoIcon name="edit" size={16} color="white" strokeWidth={1.8}/>
+              Edit entry
+            </button>
+            <button style={{
+              width: 48, height: 48, borderRadius: 12, cursor: 'pointer',
+              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+              border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: dark ? '#f5f1e8' : '#1a1a2e',
+            }}>
+              <MinkoIcon name="camera" size={18} strokeWidth={1.7}/>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PIN PREVIEW (small bottom sheet on tap)
+// ─────────────────────────────────────────────────────────────
+function PinPreview({ entry, dark, accent, onView, onClose, friend }) {
+  if (!entry) return null;
+  const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[entry.category]) || accent;
+  return (
+    <div style={{ padding: '4px 16px 24px' }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '6px 4px 14px' }}>
+        {entry.photos?.[0] ? (
+          <img src={entry.photos[0]} alt="" style={{ width: 76, height: 76, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }}/>
+        ) : (
+          <div style={{ width: 76, height: 76, borderRadius: 12, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <MinkoIcon name={entry.category} size={28} color={catColor} strokeWidth={1.4}/>
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+          {friend && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Avatar name={friend.name} color={friend.color} size={18}/>
+              <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>{friend.name}'s pin</span>
+            </div>
+          )}
+          <CategoryChip category={entry.category} dark={dark}/>
+          <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, lineHeight: 1.1, color: dark ? '#f5f1e8' : '#1a1a2e', margin: '2px 0 4px', letterSpacing: -0.3,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.place}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Stars n={entry.rating} size={12}/>
+            <span style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>{entry.location}</span>
+          </div>
+        </div>
+      </div>
+      <button onClick={onView} style={{
+        width: '100%', height: 46, borderRadius: 12, border: 0, cursor: 'pointer',
+        background: catColor, color: 'white', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, letterSpacing: 0.2,
+      }}>View entry</button>
+    </div>
+  );
+}
+
+window.HomeScreen = HomeScreen;
+window.PlaceDetailSheet = PlaceDetailSheet;
+window.PinPreview = PinPreview;
+window.BottomSheet = BottomSheet;
+window.BottomNav = BottomNav;
+window.TopSearch = TopSearch;
+window.GlassSurface = GlassSurface;
+window.Avatar = Avatar;
+window.Stars = Stars;
+window.CategoryChip = CategoryChip;
+window.Wordmark = Wordmark;
+window.SERIF = SERIF;
+window.SANS = SANS;

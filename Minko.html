@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Minko — Travel Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #ece8df; font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #root { width: 100%; height: 100%; }
+  @keyframes minko-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet"/>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script src="config.local.js"></script>
+
+<script type="text/babel" src="ios-frame.jsx?v=5"></script>
+<script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
+<script type="text/babel" src="data.jsx?v=5"></script>
+<script type="text/babel" src="icons.jsx?v=5"></script>
+<script type="text/babel" src="globe.jsx?v=7"></script>
+<script type="text/babel" src="screens.jsx?v=5"></script>
+<script type="text/babel" src="flows.jsx?v=6"></script>
+<script type="text/babel" src="supabase-client.jsx?v=1"></script>
+<script type="text/babel" src="onboarding.jsx?v=2"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "dark": false,
+  "accent": "#4f5bd5",
+  "homeVariant": "photo"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [screen, setScreen] = useState('home');
+  const [activePin, setActivePin] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [activeFriendPin, setActiveFriendPin] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    window.sb.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user || null);
+      setAuthReady(true);
+    });
+    const { data: { subscription } } = window.sb.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await window.sb.auth.signOut();
+    setUser(null);
+  };
+
+  const dark = t.dark;
+  const accent = t.accent;
+
+  const resetSheets = () => {
+    setShowPreview(false);
+    setShowDetail(false);
+    setActivePin(null);
+    setActiveFriendPin(null);
+  };
+
+  const onPinTap = (id) => { setActivePin(id); setShowPreview(true); };
+  const onFriendPinTap = (id) => { setActiveFriendPin(id); setShowPreview(true); };
+
+  const navProps = {
+    active: screen,
+    onChange: (s) => { setScreen(s); resetSheets(); },
+  };
+
+  const activeEntry = MINKO_ENTRIES.find(e => e.id === activePin);
+  const activeFriendEntry = MINKO_FRIEND_ENTRIES.find(e => e.id === activeFriendPin);
+  const activeFriend = activeFriendEntry && MINKO_FRIENDS.find(f => f.id === activeFriendEntry.friendId);
+  const friendsAtBuca = MINKO_FRIENDS_AT_BUCA.filter(id => MINKO_FRIENDS.find(f => f.id === id));
+
+  const previewEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
+  const previewFriend = screen === 'friends' ? activeFriend : null;
+  const isFriendMode = screen === 'friends';
+  const detailEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
+
+  return (
+    <div style={{
+      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: dark
+        ? 'radial-gradient(ellipse at 50% 30%, #1d1f2c 0%, #0e1018 100%)'
+        : 'radial-gradient(ellipse at 50% 30%, #f5f0e4 0%, #e3dccb 100%)',
+      transition: 'background 0.3s',
+    }}>
+      <IOSDevice dark={dark} width={402} height={874}>
+        <div style={{ position: 'relative', width: '100%', height: '100%', background: dark ? '#0e1018' : '#cfe1ee', overflow: 'clip' }}>
+
+          {screen === 'home' && (
+            <HomeScreen
+              accent={accent} dark={dark}
+              variant={t.homeVariant}
+              onPin={onPinTap}
+              activePinId={activePin}
+              navProps={navProps}
+              onLog={() => setShowLog(true)}
+            />
+          )}
+
+          {screen === 'friends' && (
+            <FriendsScreen
+              accent={accent} dark={dark}
+              onPin={onFriendPinTap}
+              activePinId={activeFriendPin}
+              navProps={navProps}
+              onLog={() => setShowLog(true)}
+            />
+          )}
+
+          {screen === 'profile' && (
+            <ProfileScreen
+              accent={accent} dark={dark}
+              onPin={onPinTap}
+              navProps={navProps}
+              onLog={() => setShowLog(true)}
+              onSignOut={user ? handleSignOut : null}
+            />
+          )}
+
+          {/* Pin preview sheet (small) */}
+          <BottomSheet
+            open={showPreview && !showDetail}
+            onClose={() => { setShowPreview(false); setActivePin(null); setActiveFriendPin(null); }}
+            dark={dark}
+          >
+            <PinPreview
+              entry={previewEntry} dark={dark} accent={accent}
+              friend={previewFriend}
+              onView={() => setShowDetail(true)}
+            />
+          </BottomSheet>
+
+          {/* Place detail sheet (full) */}
+          <BottomSheet
+            open={showDetail}
+            onClose={() => { setShowDetail(false); setShowPreview(false); setActivePin(null); setActiveFriendPin(null); }}
+            dark={dark}
+          >
+            <PlaceDetailSheet
+              entry={detailEntry} dark={dark} accent={accent}
+              friendMode={isFriendMode} friend={isFriendMode ? activeFriend : null}
+              friendsAtPlace={!isFriendMode && activeEntry?.id === 'e1' ? friendsAtBuca : []}
+              onClose={() => setShowDetail(false)}
+            />
+          </BottomSheet>
+
+          {/* Log entry flow */}
+          <BottomSheet open={showLog} onClose={() => setShowLog(false)} dark={dark}>
+            <LogEntryFlow
+              dark={dark} accent={accent}
+              onClose={() => setShowLog(false)}
+              onConfirm={() => setShowLog(false)}
+            />
+          </BottomSheet>
+
+          {/* Onboarding — shown when not authenticated */}
+          {authReady && !user && (
+            <OnboardingFlow
+              dark={dark} accent={accent}
+              onComplete={() => setShowLog(true)}
+              onSkip={() => {}}
+            />
+          )}
+
+        </div>
+      </IOSDevice>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Theme"/>
+        <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)}/>
+        <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}/>
+        <TweakSection label="Home screen variant"/>
+        <TweakRadio
+          label="Style"
+          value={t.homeVariant}
+          options={[
+            { value: 'minimal', label: 'Minimal' },
+            { value: 'photo', label: 'Photo pins' },
+            { value: 'editorial', label: 'Editorial' },
+          ]}
+          onChange={(v) => setTweak('homeVariant', v)}
+        />
+        <TweakSection label="Navigate"/>
+        <TweakButton label="Home / Globe" onClick={() => { setScreen('home'); resetSheets(); setShowLog(false); }}/>
+        <TweakButton label="Friends globe" onClick={() => { setScreen('friends'); resetSheets(); setShowLog(false); }}/>
+        <TweakButton label="Profile" onClick={() => { setScreen('profile'); resetSheets(); setShowLog(false); }}/>
+        <TweakButton label="Log entry flow" onClick={() => { setScreen('home'); resetSheets(); setShowLog(true); }}/>
+        <TweakButton label="Place detail (Bar Buca)" onClick={() => { setScreen('home'); setActivePin('e1'); setShowPreview(true); setShowDetail(true); setShowLog(false); }}/>
+        <TweakSection label="Auth"/>
+        <TweakButton label="Sign out (show onboarding)" onClick={() => { resetSheets(); setShowLog(false); handleSignOut(); }}/>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

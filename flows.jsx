@@ -1476,7 +1476,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
       {/* Top bar */}
       <div style={{ position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30 }}>
         <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src="logo2.png" style={{ height: 33, width: 'auto', display: 'block' }} alt="minko"/>
+          <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block' }} alt="minko"/>
           <span style={{ fontFamily: SERIF, fontSize: 14, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>· friends</span>
         </GlassSurface>
       </div>

@@ -9,6 +9,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
   const [emailFocused, setEmailFocused] = useState2(false);
   const [passFocused, setPassFocused] = useState2(false);
   const [loading, setLoading] = useState2(false);
+  const [googleLoading, setGoogleLoading] = useState2(false);
   const [error, setError] = useState2('');
 
   const bg = dark
@@ -54,6 +55,16 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
     setLoading(false);
   };
 
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    setError('');
+    const { error: err } = await window.sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (err) { setError(err.message); setGoogleLoading(false); }
+  };
+
   const switchMode = () => {
     setMode(m => m === 'signup' ? 'signin' : 'signup');
     setError('');
@@ -79,6 +90,35 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
           </div>
 
           <div style={{ paddingBottom: 52, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Google button */}
+            <button
+              onClick={handleGoogle}
+              disabled={googleLoading}
+              style={{
+                height: 54, borderRadius: 16, border: '1.5px solid rgba(20,30,60,0.12)',
+                background: 'white', cursor: googleLoading ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                fontFamily: SANS, fontSize: 15, fontWeight: 600, color: '#1a1a2e',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                transition: 'opacity 0.15s',
+                opacity: googleLoading ? 0.6 : 1,
+              }}>
+              <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#EA4335" d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.08-6.08C34.52 3.05 29.56 1 24 1 14.82 1 7.07 6.48 3.64 14.22l7.08 5.5C12.43 13.72 17.76 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.5 24.5c0-1.64-.15-3.22-.42-4.75H24v9h12.67c-.55 2.96-2.2 5.47-4.67 7.16l7.19 5.58C43.37 37.27 46.5 31.36 46.5 24.5z"/>
+                <path fill="#FBBC05" d="M10.72 28.28A14.6 14.6 0 0 1 9.5 24c0-1.49.26-2.93.72-4.28l-7.08-5.5A23.93 23.93 0 0 0 0 24c0 3.87.93 7.53 2.57 10.75l8.15-6.47z"/>
+                <path fill="#34A853" d="M24 47c5.56 0 10.23-1.84 13.64-4.99l-7.19-5.58C28.7 37.88 26.46 38.5 24 38.5c-6.24 0-11.57-4.22-13.28-9.94l-8.15 6.47C6.07 42.28 14.45 47 24 47z"/>
+              </svg>
+              {googleLoading ? '…' : 'Continue with Google'}
+            </button>
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1, height: 1, background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)' }}/>
+              <span style={{ fontFamily: SANS, fontSize: 12, color: textMuted }}>or</span>
+              <div style={{ flex: 1, height: 1, background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)' }}/>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <label style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: textMuted }}>Email</label>

@@ -1337,10 +1337,15 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
   const [showWishlist, setShowWishlist] = useState2(false);
   const [avatarUploading, setAvatarUploading] = useState2(false);
+  const [localAvatarUrl, setLocalAvatarUrl] = useState2(user?.user_metadata?.avatar_url || null);
   const avatarFileRef = useRef2(null);
 
+  // Stay in sync if the user prop updates from outside (auth state change)
+  useEffect2(() => {
+    setLocalAvatarUrl(user?.user_metadata?.avatar_url || null);
+  }, [user?.user_metadata?.avatar_url]);
+
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
-  const avatarUrl = user?.user_metadata?.avatar_url || null;
 
   const handleAvatarFile = async (e) => {
     const file = e.target.files?.[0];
@@ -1349,9 +1354,13 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     try {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${user.id}/avatar.${ext}`;
-      await window.sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+      const { error: uploadError } = await window.sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+      if (uploadError) throw uploadError;
       const { data: { publicUrl } } = window.sb.storage.from('avatars').getPublicUrl(path);
-      await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
+      // Update UI immediately — don't wait for auth state change to propagate
+      setLocalAvatarUrl(publicUrl);
+      const { error: updateError } = await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
+      if (updateError) console.error('Avatar metadata update error', updateError);
     } catch(err) { console.error('Avatar upload error', err); }
     setAvatarUploading(false);
     e.target.value = '';
@@ -1376,7 +1385,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       <div style={{ paddingTop: 64, padding: '64px 20px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
         <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
         <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1 }}>
-          <Avatar src={avatarUrl} name={displayName} color="#7a6ca3" size={56}/>
+          <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={56}/>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
             background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

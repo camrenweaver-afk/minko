@@ -298,76 +298,18 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
 // PROFILE SCREEN
 // ─────────────────────────────────────────────────────────────
 
-// Wishlist overlay — upcoming/planning trips with their saved places
+// Wishlist overlay
 function WishlistOverlay({ open, onBack, dark, accent }) {
-  const upcomingTrips = MINKO_TRIPS.filter(t => t.status === 'upcoming' || t.status === 'planning');
-  const statusLabel = { upcoming: 'Soon', planning: 'Planning' };
   return (
     <SlideOverlay open={open} onBack={onBack} dark={dark} title="Wishlist">
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 48px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {upcomingTrips.map(trip => {
-          const items = MINKO_WISHLIST.filter(w => w.tripId === trip.id);
-          return (
-            <div key={trip.id}>
-              {/* Trip header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: `${trip.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{trip.emoji}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', lineHeight: 1.1 }}>{trip.label}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>{trip.city} · {trip.dates}</div>
-                </div>
-                <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: `${trip.color}20`, color: trip.color }}>{statusLabel[trip.status]}</span>
-              </div>
-              {/* Wishlist items for this trip */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {items.length === 0 && (
-                  <div style={{ fontFamily: SANS, fontSize: 13, color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)', padding: '8px 0' }}>No places saved yet</div>
-                )}
-                {items.map(w => (
-                  <div key={w.id} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, background: dark ? 'rgba(255,255,255,0.04)' : 'white', border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)' }}>
-                    {w.photo ? (
-                      <img src={w.photo} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 10, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : `${trip.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <MinkoIcon name={w.category} size={22} color={trip.color} strokeWidth={1.4}/>
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.place}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.location}</div>
-                      {w.note && <div style={{ fontFamily: SANS, fontSize: 11.5, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{w.note}&rdquo;</div>}
-                      {w.savedFrom && <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)', marginTop: 2 }}>{w.savedFrom}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        {/* Untripped wishlist items */}
-        {(() => {
-          const loose = MINKO_WISHLIST.filter(w => !w.tripId);
-          if (!loose.length) return null;
-          return (
-            <div>
-              <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', marginBottom: 10 }}>Someday</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {loose.map(w => (
-                  <div key={w.id} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, background: dark ? 'rgba(255,255,255,0.04)' : 'white', border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)' }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 10, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <MinkoIcon name={w.category} size={22} color={accent} strokeWidth={1.4}/>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.place}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 2 }}>{w.location}</div>
-                      {w.note && <div style={{ fontFamily: SANS, fontSize: 11.5, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{w.note}&rdquo;</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 40px', gap: 12 }}>
+        <MinkoIcon name="bookmark" size={36} color={accent} strokeWidth={1.3}/>
+        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, textAlign: 'center' }}>
+          No saved places yet
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55, textAlign: 'center' }}>
+          Save places you want to visit and they'll show up here
+        </div>
       </div>
     </SlideOverlay>
   );
@@ -650,16 +592,13 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
         </GlassSurface>
       </div>
 
-      {/* Empty state */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        zIndex: 20, textAlign: 'center', padding: '0 40px',
-      }}>
-        <GlassSurface dark={dark} radius={20} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <MinkoIcon name="friends" size={32} color={accent} strokeWidth={1.4}/>
-          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3 }}>Friends coming soon</div>
-          <div style={{ fontFamily: SANS, fontSize: 13, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.5 }}>
-            Connect with friends to see where they've been
+      {/* Banner — sits just below the top bar */}
+      <div style={{ position: 'absolute', top: 122, left: 12, right: 12, zIndex: 20 }}>
+        <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Add friends to see their recommendations</div>
+            <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>Friends feature coming soon</div>
           </div>
         </GlassSurface>
       </div>

@@ -32,7 +32,7 @@
 <script type="text/babel" src="icons.jsx?v=5"></script>
 <script type="text/babel" src="globe.jsx?v=7"></script>
 <script type="text/babel" src="screens.jsx?v=6"></script>
-<script type="text/babel" src="flows.jsx?v=10"></script>
+<script type="text/babel" src="flows.jsx?v=11"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -65,6 +65,9 @@ function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [showLogPicker, setShowLogPicker] = useState(false);
+  const [showWishlistAdd, setShowWishlistAdd] = useState(false);
+  const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -92,6 +95,18 @@ function App() {
     if (!user) return;
     window.sb.from('entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       .then(({ data }) => setEntries((data || []).map(normalizeEntry)));
+  };
+
+  const refreshWishlistCount = () => {
+    if (!user) return;
+    window.sb.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+      .then(({ count }) => setWishlistCount(count || 0));
+  };
+
+  const handleWishlistAdded = () => {
+    setShowWishlistAdd(false);
+    setWishlistRefreshKey(k => k + 1);
+    refreshWishlistCount();
   };
 
   const handleSignOut = async () => {
@@ -145,7 +160,7 @@ function App() {
               onPin={onPinTap}
               activePinId={activePin}
               navProps={navProps}
-              onLog={() => setShowLog(true)}
+              onLog={() => setShowLogPicker(true)}
               entries={entries}
             />
           )}
@@ -156,7 +171,7 @@ function App() {
               onPin={onFriendPinTap}
               activePinId={activeFriendPin}
               navProps={navProps}
-              onLog={() => setShowLog(true)}
+              onLog={() => setShowLogPicker(true)}
             />
           )}
 
@@ -165,11 +180,13 @@ function App() {
               accent={accent} dark={dark}
               onPin={onPinTap}
               navProps={navProps}
-              onLog={() => setShowLog(true)}
+              onLog={() => setShowLogPicker(true)}
               onSignOut={user ? handleSignOut : null}
               entries={entries}
               user={user}
               wishlistCount={wishlistCount}
+              wishlistRefreshKey={wishlistRefreshKey}
+              onOpenWishlistAdd={() => setShowWishlistAdd(true)}
             />
           )}
 
@@ -200,12 +217,32 @@ function App() {
             />
           </BottomSheet>
 
+          {/* Log type picker */}
+          <BottomSheet open={showLogPicker} onClose={() => setShowLogPicker(false)} dark={dark}>
+            <ActionPickerSheet
+              dark={dark} accent={accent}
+              onClose={() => setShowLogPicker(false)}
+              onLogVisit={() => { setShowLogPicker(false); setShowLog(true); }}
+              onSaveWishlist={() => { setShowLogPicker(false); setShowWishlistAdd(true); }}
+            />
+          </BottomSheet>
+
           {/* Log entry flow */}
           <BottomSheet open={showLog} onClose={() => setShowLog(false)} dark={dark}>
             <LogEntryFlow
               dark={dark} accent={accent}
               onClose={() => setShowLog(false)}
               onConfirm={() => { setShowLog(false); refreshEntries(); }}
+            />
+          </BottomSheet>
+
+          {/* Wishlist add flow */}
+          <BottomSheet open={showWishlistAdd} onClose={() => setShowWishlistAdd(false)} dark={dark}>
+            <SaveToWishlistFlow
+              dark={dark} accent={accent}
+              user={user}
+              onClose={() => setShowWishlistAdd(false)}
+              onConfirm={handleWishlistAdded}
             />
           </BottomSheet>
 

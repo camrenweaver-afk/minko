@@ -15,6 +15,252 @@ function mapboxCategoryToMinko(categories) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ACTION PICKER — choose between Log Visit and Save to Wishlist
+// ─────────────────────────────────────────────────────────────
+function ActionPickerSheet({ dark, accent, onClose, onLogVisit, onSaveWishlist }) {
+  return (
+    <div style={{ padding: '8px 20px 44px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 22px' }}>
+        <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+          What are you adding?
+        </span>
+        <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 0,
+          background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+          <MinkoIcon name="close" size={16} strokeWidth={2}/>
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <button onClick={onLogVisit} style={{
+          height: 76, borderRadius: 16, border: 'none', cursor: 'pointer',
+          background: accent, display: 'flex', alignItems: 'center', gap: 16, padding: '0 22px',
+          textAlign: 'left', boxShadow: `0 4px 18px ${accent}44`,
+        }}>
+          <MinkoIcon name="star" size={26} color="white" strokeWidth={1.5}/>
+          <div>
+            <div style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 600, color: 'white' }}>Log a visit</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: 'rgba(255,255,255,0.72)', marginTop: 3 }}>Rate a place you've been to</div>
+          </div>
+        </button>
+        <button onClick={onSaveWishlist} style={{
+          height: 76, borderRadius: 16, cursor: 'pointer', textAlign: 'left',
+          border: dark ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(20,30,60,0.1)',
+          background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+          display: 'flex', alignItems: 'center', gap: 16, padding: '0 22px',
+        }}>
+          <MinkoIcon name="bookmark" size={26} color={accent} strokeWidth={1.5}/>
+          <div>
+            <div style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Save to wishlist</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 3 }}>Add a place you want to visit</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SAVE TO WISHLIST FLOW (2 steps)
+// ─────────────────────────────────────────────────────────────
+function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm }) {
+  const [step, setStep] = useState2(1);
+  const [place, setPlace] = useState2(null);
+  const [category, setCategory] = useState2('experience');
+  const [note, setNote] = useState2('');
+  const [query, setQuery] = useState2('');
+  const [results, setResults] = useState2([]);
+  const [loading, setLoading] = useState2(false);
+  const [saving, setSaving] = useState2(false);
+  const [sessionToken] = useState2(() => 'minko-wish-' + Math.random().toString(36).slice(2));
+
+  useEffect2(() => {
+    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&limit=5`;
+        const res = await fetch(url);
+        const json = await res.json();
+        setResults((json.suggestions || []).map(s => ({
+          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
+          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
+        })));
+      } catch(e) { setResults([]); }
+      setLoading(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const selectPlace = async (r) => {
+    if (!window.MAPBOX_TOKEN) return;
+    try {
+      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const feat = json.features?.[0];
+      setPlace({ ...r, lon: feat?.geometry.coordinates[0], lat: feat?.geometry.coordinates[1] });
+      setCategory(mapboxCategoryToMinko(r.poi_categories));
+    } catch(e) {
+      setPlace({ ...r, lon: null, lat: null });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!place || saving) return;
+    setSaving(true);
+    if (window.sb && user) {
+      await window.sb.from('wishlist').insert({
+        user_id: user.id,
+        place: place.name,
+        category,
+        note: note || null,
+        location: place.sub || null,
+        lon: place.lon || null,
+        lat: place.lat || null,
+      });
+    }
+    setSaving(false);
+    onConfirm();
+  };
+
+  const cats = [
+    { id: 'restaurant', label: 'Restaurant' },
+    { id: 'hotel', label: 'Hotel' },
+    { id: 'attraction', label: 'Attraction' },
+    { id: 'experience', label: 'Experience' },
+  ];
+
+  return (
+    <div style={{ padding: '4px 0 32px', minHeight: 420 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+            Save to wishlist
+          </span>
+          <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+            Step {step} of 2
+          </span>
+        </div>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
+          background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+          <MinkoIcon name="close" size={16} strokeWidth={2}/>
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: 5, padding: '2px 20px 16px' }}>
+        {[1,2].map(i => (
+          <div key={i} style={{ flex: 1, height: 3, borderRadius: 999, transition: 'background 0.25s',
+            background: i <= step ? accent : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,30,60,0.08)') }}/>
+        ))}
+      </div>
+
+      {step === 1 && (
+        <div style={{ padding: '0 20px' }}>
+          <div style={{ position: 'relative', marginBottom: 14 }}>
+            <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>
+              <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)'} strokeWidth={1.8}/>
+            </div>
+            <input placeholder="Search for a place…" value={query}
+              onChange={e => { setQuery(e.target.value); setPlace(null); }}
+              style={{
+                width: '100%', boxSizing: 'border-box', height: 52, paddingLeft: 42, paddingRight: 16,
+                borderRadius: 14, border: 'none', outline: 'none',
+                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+                fontFamily: SANS, fontSize: 16, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e',
+              }}/>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {!query.trim() && <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)' }}>Search for a place to add to your wishlist…</div>}
+            {loading && !results.length && <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)' }}>Searching…</div>}
+            {!loading && query.trim() && !results.length && <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)' }}>No places found</div>}
+            {results.map(r => {
+              const sel = place?.id === r.id;
+              return (
+                <button key={r.id} onClick={() => selectPlace(r)} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '12px 8px',
+                  background: sel ? (dark ? `${accent}22` : `${accent}10`) : 'transparent',
+                  border: 0, borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: sel ? accent : (dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)') }}>
+                    <MinkoIcon name="bookmark" size={16} strokeWidth={1.8}/>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{r.name}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sub}</div>
+                  </div>
+                  {sel && <MinkoIcon name="check" size={18} color={accent} strokeWidth={2.2}/>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div style={{ padding: '0 20px' }}>
+          {place && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)', marginBottom: 18 }}>
+              <MinkoIcon name="bookmark" size={16} color={accent} strokeWidth={2}/>
+              <div style={{ flex: 1, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{place.name}</div>
+            </div>
+          )}
+          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)', marginBottom: 12, letterSpacing: 0.3 }}>What kind of place?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+            {cats.map(c => {
+              const sel = category === c.id;
+              return (
+                <button key={c.id} onClick={() => setCategory(c.id)} style={{
+                  height: 80, borderRadius: 14, cursor: 'pointer', transition: 'all 0.18s',
+                  border: sel ? `1.5px solid ${accent}` : (dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)'),
+                  background: sel ? (dark ? `${accent}22` : `${accent}0e`) : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.5)'),
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                  <MinkoIcon name={c.id} size={22} color={sel ? accent : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.5}/>
+                  <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: sel ? 600 : 500, color: sel ? accent : (dark ? '#f5f1e8' : '#1a1a2e') }}>{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <textarea value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Why do you want to go? Any notes…"
+            style={{
+              width: '100%', boxSizing: 'border-box', minHeight: 80, padding: 14,
+              borderRadius: 14, border: 'none', outline: 'none', resize: 'none',
+              background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.04)',
+              fontFamily: SERIF, fontSize: 17, lineHeight: 1.4, color: dark ? '#f5f1e8' : '#1a1a2e',
+            }}/>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, padding: '20px 20px 0' }}>
+        {step > 1 && (
+          <button onClick={() => setStep(1)} style={{
+            height: 50, padding: '0 18px', borderRadius: 12, cursor: 'pointer', border: 0,
+            background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+            color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
+          }}>Back</button>
+        )}
+        <button
+          disabled={step === 1 && !place}
+          onClick={step === 1 ? () => setStep(2) : handleSave}
+          style={{
+            flex: 1, height: 50, borderRadius: 12, border: 0, letterSpacing: 0.2,
+            cursor: (step === 1 && !place) ? 'default' : 'pointer',
+            background: (step === 1 && !place) ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
+            color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600,
+          }}>
+          {step === 1 ? 'Continue' : (saving ? 'Saving…' : 'Save to wishlist')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // LOG ENTRY FLOW (3 steps in one bottom sheet)
 // ─────────────────────────────────────────────────────────────
 function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
@@ -298,18 +544,66 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
 // PROFILE SCREEN
 // ─────────────────────────────────────────────────────────────
 
-// Wishlist overlay
-function WishlistOverlay({ open, onBack, dark, accent }) {
+// Wishlist overlay — fetches real data, has + FAB
+function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }) {
+  const [items, setItems] = useState2([]);
+  const [fetching, setFetching] = useState2(false);
+
+  useEffect2(() => {
+    if (!open || !user) return;
+    setFetching(true);
+    window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }) => { setItems(data || []); setFetching(false); });
+  }, [open, refreshKey]);
+
+  const catColor = (cat) => (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[cat]) || accent;
+
   return (
     <SlideOverlay open={open} onBack={onBack} dark={dark} title="Wishlist">
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 40px', gap: 12 }}>
-        <MinkoIcon name="bookmark" size={36} color={accent} strokeWidth={1.3}/>
-        <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, textAlign: 'center' }}>
-          No saved places yet
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '12px 16px 100px' }}>
+          {fetching && (
+            <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Loading…</div>
+          )}
+          {!fetching && items.length === 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 32px', gap: 12, textAlign: 'center' }}>
+              <MinkoIcon name="bookmark" size={38} color={accent} strokeWidth={1.3}/>
+              <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, letterSpacing: -0.3, color: dark ? '#f5f1e8' : '#1a1a2e' }}>No saved places yet</div>
+              <div style={{ fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55 }}>Tap + to save a place you want to visit</div>
+              <button onClick={onAdd} style={{
+                marginTop: 8, height: 46, padding: '0 24px', borderRadius: 12, border: 0, cursor: 'pointer',
+                background: accent, color: 'white', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
+                boxShadow: `0 4px 14px ${accent}44`,
+              }}>Add your first place</button>
+            </div>
+          )}
+          {items.map(w => (
+            <div key={w.id} style={{ display: 'flex', gap: 12, padding: 14, borderRadius: 16, marginBottom: 8,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+              border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.05)' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                background: dark ? 'rgba(255,255,255,0.06)' : `${catColor(w.category)}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <MinkoIcon name={w.category} size={22} color={catColor(w.category)} strokeWidth={1.4}/>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+                <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.15,
+                  color: dark ? '#f5f1e8' : '#1a1a2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.place}</div>
+                {w.location && <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.location}</div>}
+                {w.note && <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{w.note}&rdquo;</div>}
+              </div>
+            </div>
+          ))}
         </div>
-        <div style={{ fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55, textAlign: 'center' }}>
-          Save places you want to visit and they'll show up here
-        </div>
+        {/* FAB */}
+        <button onClick={onAdd} style={{
+          position: 'absolute', right: 20, bottom: 28, width: 52, height: 52,
+          borderRadius: '50%', border: 0, cursor: 'pointer',
+          background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 4px 18px ${accent}55`,
+        }}>
+          <MinkoIcon name="plus" size={24} color="white" strokeWidth={2.2}/>
+        </button>
       </div>
     </SlideOverlay>
   );
@@ -448,7 +742,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0 }) {
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onOpenWishlistAdd }) {
   const [showWishlist, setShowWishlist] = useState2(false);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
@@ -571,6 +865,9 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       <WishlistOverlay
         open={showWishlist} dark={dark} accent={accent}
         onBack={() => setShowWishlist(false)}
+        user={user}
+        refreshKey={wishlistRefreshKey}
+        onAdd={onOpenWishlistAdd}
       />
     </div>
   );
@@ -608,6 +905,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
   );
 }
 
+window.ActionPickerSheet = ActionPickerSheet;
+window.SaveToWishlistFlow = SaveToWishlistFlow;
 window.LogEntryFlow = LogEntryFlow;
 window.ProfileScreen = ProfileScreen;
 window.FriendsScreen = FriendsScreen;

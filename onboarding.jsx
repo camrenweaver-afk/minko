@@ -83,7 +83,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
           animation: 'minko-fade-in 0.35s ease',
         }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            <img src="logo.png" alt="Minko" style={{ width: 140, height: 'auto' }}/>
+            <img src="logo.png" alt="Minko" style={{ width: '75%', height: 'auto' }}/>
             <span style={{ fontFamily: SANS, fontSize: 13, color: textMuted, letterSpacing: 0.5 }}>
               {mode === 'signup' ? 'Your travel journal' : 'Welcome back'}
             </span>

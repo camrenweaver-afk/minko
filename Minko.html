@@ -74,6 +74,9 @@ function App() {
   const [showEdit, setShowEdit] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [logKey, setLogKey] = useState(0);
+  const [editKey, setEditKey] = useState(0);
+  const [photoKey, setPhotoKey] = useState(0);
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -220,9 +223,9 @@ function App() {
               friendMode={isFriendMode} friend={isFriendMode ? activeFriend : null}
               friendsAtPlace={[]}
               onClose={() => setShowDetail(false)}
-              onEdit={!isFriendMode ? () => setShowEdit(true) : undefined}
+              onEdit={!isFriendMode ? () => { setEditKey(k => k + 1); setShowEdit(true); } : undefined}
               onDelete={!isFriendMode ? () => setShowDeleteConfirm(true) : undefined}
-              onPhotosChanged={!isFriendMode ? () => setShowAddPhoto(true) : undefined}
+              onPhotosChanged={!isFriendMode ? () => { setPhotoKey(k => k + 1); setShowAddPhoto(true); } : undefined}
             />
           </BottomSheet>
 
@@ -231,14 +234,14 @@ function App() {
             <ActionPickerSheet
               dark={dark} accent={accent}
               onClose={() => setShowLogPicker(false)}
-              onLogVisit={() => { setShowLogPicker(false); setShowLog(true); }}
+              onLogVisit={() => { setShowLogPicker(false); setLogKey(k => k + 1); setShowLog(true); }}
               onSaveWishlist={() => { setShowLogPicker(false); setShowWishlistAdd(true); }}
             />
           </BottomSheet>
 
           {/* Log entry flow */}
           <BottomSheet open={showLog} onClose={() => setShowLog(false)} dark={dark}>
-            <LogEntryFlow
+            <LogEntryFlow key={logKey}
               dark={dark} accent={accent}
               onClose={() => setShowLog(false)}
               onConfirm={() => { setShowLog(false); refreshEntries(); }}
@@ -257,7 +260,7 @@ function App() {
 
           {/* Edit entry */}
           <BottomSheet open={showEdit} onClose={() => setShowEdit(false)} dark={dark}>
-            <EditItemFlow
+            <EditItemFlow key={editKey}
               entry={activeEntry} tableKind="entries" dark={dark} accent={accent}
               onClose={() => setShowEdit(false)}
               onConfirm={() => { setShowEdit(false); refreshEntries(); }}
@@ -266,7 +269,7 @@ function App() {
 
           {/* Add / manage photos */}
           <BottomSheet open={showAddPhoto} onClose={() => setShowAddPhoto(false)} dark={dark}>
-            <AddPhotoSheet
+            <AddPhotoSheet key={photoKey}
               entry={activeEntry} tableKind="entries" user={user} dark={dark} accent={accent}
               onClose={() => setShowAddPhoto(false)}
               onSave={() => { setShowAddPhoto(false); refreshEntries(); }}

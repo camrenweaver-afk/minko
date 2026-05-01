@@ -32,7 +32,7 @@
 <script type="text/babel" src="icons.jsx?v=5"></script>
 <script type="text/babel" src="globe.jsx?v=7"></script>
 <script type="text/babel" src="screens.jsx?v=6"></script>
-<script type="text/babel" src="flows.jsx?v=9"></script>
+<script type="text/babel" src="flows.jsx?v=10"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -70,6 +70,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   useEffect(() => {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
@@ -80,9 +81,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) { setEntries([]); return; }
+    if (!user) { setEntries([]); setWishlistCount(0); return; }
     window.sb.from('entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       .then(({ data }) => setEntries((data || []).map(normalizeEntry)));
+    window.sb.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+      .then(({ count }) => setWishlistCount(count || 0));
   }, [user?.id]);
 
   const refreshEntries = () => {
@@ -166,6 +169,7 @@ function App() {
               onSignOut={user ? handleSignOut : null}
               entries={entries}
               user={user}
+              wishlistCount={wishlistCount}
             />
           )}
 

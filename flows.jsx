@@ -448,7 +448,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null }) {
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0 }) {
   const [showWishlist, setShowWishlist] = useState2(false);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
@@ -524,7 +524,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <MinkoIcon name="bookmark" size={22} color={accent} strokeWidth={1.5}/>
           <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', lineHeight: 1 }}>Wishlist</div>
-          <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>0 saved places</div>
+          <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>{wishlistCount} {wishlistCount === 1 ? 'saved place' : 'saved places'}</div>
         </button>
       </div>
 

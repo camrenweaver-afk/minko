@@ -61,6 +61,12 @@ const MinkoIcon = ({ name, size = 22, color = 'currentColor', strokeWidth = 1.6 
       return <svg viewBox="0 0 24 24" {...s}><path d="M3 3l18 18"/><path d="M10.5 6.4A9.7 9.7 0 0 1 12 6.3c5 0 9 5.7 9 5.7a17 17 0 0 1-3.4 4.1M6.4 7.4C4 9.4 3 12 3 12s4 5.7 9 5.7c1.4 0 2.7-.4 3.9-1"/><path d="M9.6 9.6a3 3 0 0 0 4.2 4.2"/></svg>;
     case 'plane':
       return <svg viewBox="0 0 24 24" {...s}><path d="M3 14l8-2 5-9 2 1-3 9 6 3-1 2-7-2-4 6-2-1 1-5z"/></svg>;
+    case 'trash':
+      return <svg viewBox="0 0 24 24" {...s}><path d="M5 7h14M8 7V5h8v2M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>;
+    case 'link':
+      return <svg viewBox="0 0 24 24" {...s}><path d="M10 13a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-5.7l-1.5 1.5"/><path d="M14 11a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 5.7l1.5-1.5"/></svg>;
+    case 'calendar':
+      return <svg viewBox="0 0 24 24" {...s}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>;
     default: return null;
   }
 };

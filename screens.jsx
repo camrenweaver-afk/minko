@@ -152,7 +152,7 @@ function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
       display: 'flex', gap: 10, alignItems: 'center',
     }}>
       <GlassSurface dark={dark} radius={26} style={{ flex: 1, height: 52, padding: '0 10px 0 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Wordmark dark={dark} size={22}/>
+        <img src="logo2.png" style={{ height: 26, width: 'auto', display: 'block' }} alt="minko"/>
         <div onClick={onTap} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer' }}>
           <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
           <span style={{ fontFamily: SANS, fontSize: 14.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>{placeholder}</span>
@@ -216,7 +216,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
 // ─────────────────────────────────────────────────────────────
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
-function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend }) {
+function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged }) {
   const [liked, setLiked] = useState(entry?.likedByMe || false);
   const [likeCount, setLikeCount] = useState(entry?.likes || 0);
   const [commentDraft, setCommentDraft] = useState('');
@@ -235,16 +235,21 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   };
   return (
     <div style={{ padding: '6px 0 24px' }}>
-      {/* Hero photo */}
-      {entry.photos?.[0] && (
-        <div style={{ position: 'relative', height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden' }}>
+      {/* Photo gallery */}
+      {entry.photos?.length === 1 && (
+        <div style={{ height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden' }}>
           <img src={entry.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-          {entry.photos.length > 1 && (
-            <div style={{ position: 'absolute', bottom: 10, right: 10, padding: '4px 10px', borderRadius: 999,
-              background: 'rgba(0,0,0,0.55)', color: 'white', fontFamily: SANS, fontSize: 11, fontWeight: 500 }}>
-              1/{entry.photos.length}
+        </div>
+      )}
+      {entry.photos?.length > 1 && (
+        <div style={{ margin: '4px 0 0', overflowX: 'auto', display: 'flex', gap: 8,
+          padding: '0 16px', scrollSnapType: 'x mandatory', paddingBottom: 2 }}>
+          {entry.photos.map((url, i) => (
+            <div key={i} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+              overflow: 'hidden', scrollSnapAlign: 'start' }}>
+              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
             </div>
-          )}
+          ))}
         </div>
       )}
       <div style={{ padding: '18px 20px 0' }}>
@@ -277,35 +282,43 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           </p>
         )}
 
-        {/* Geographic tag row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 18,
-          fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
-          <MinkoIcon name="pin" size={14} color={catColor} strokeWidth={1.8}/>
-          43.6532°N, 79.3832°W
-        </div>
-
-        {/* Friends-have-been row */}
-        {!friendMode && friendsAtPlace?.length > 0 && (
-          <div style={{ marginTop: 22, padding: '14px 14px',
-            background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)',
-            borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ display: 'flex' }}>
-                {friendsAtPlace.map((id, i) => {
-                  const f = friendLookup(id);
-                  return <div key={id} style={{ marginLeft: i ? -8 : 0 }}><Avatar name={f.name} color={f.color} size={26}/></div>;
-                })}
-              </div>
-              <span style={{ fontFamily: SANS, fontSize: 13, color: dark ? '#f5f1e8' : '#1a1a2e' }}>
-                <b style={{ fontWeight: 600 }}>{friendsAtPlace.length} friends</b> have been here
-              </span>
+        {/* Links */}
+        {entry.links?.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
+              color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Links</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {entry.links.map((url, i) => {
+                let domain = url;
+                try { domain = new URL(url).hostname.replace('www.', ''); } catch(e) {}
+                return (
+                  <button key={i} onClick={() => window.open(url, '_blank')} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10,
+                    background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.04)',
+                    border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
+                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                  }}>
+                    <MinkoIcon name="link" size={14} color={accent} strokeWidth={2}/>
+                    <span style={{ fontFamily: SANS, fontSize: 13.5, color: dark ? '#f5f1e8' : '#1a1a2e',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain}</span>
+                  </button>
+                );
+              })}
             </div>
-            <MinkoIcon name="chevron-right" size={18} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)'}/>
           </div>
         )}
 
-        {/* Likes + comments — social aspect */}
-        <div style={{ marginTop: 22, paddingTop: 18,
+        {/* Geographic tag row */}
+        {(entry.lat && entry.lon) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 18,
+            fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
+            <MinkoIcon name="pin" size={14} color={catColor} strokeWidth={1.8}/>
+            {Math.abs(entry.lat).toFixed(4)}°{entry.lat >= 0 ? 'N' : 'S'}, {Math.abs(entry.lon).toFixed(4)}°{entry.lon >= 0 ? 'E' : 'W'}
+          </div>
+        )}
+
+        {/* Likes row */}
+        <div style={{ marginTop: 20, paddingTop: 18,
           borderTop: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button onClick={toggleLike} style={{
@@ -323,7 +336,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           </div>
 
           {/* Comment composer */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
             <Avatar name="You" color="#7a6ca3" size={28}/>
             <div style={{ flex: 1, position: 'relative' }}>
               <input
@@ -349,10 +362,10 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           </div>
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons — edit, photos, delete */}
         {!friendMode && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-            <button style={{
+          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            <button onClick={onEdit} style={{
               flex: 1, height: 48, borderRadius: 12, border: 0, cursor: 'pointer',
               background: accent, color: 'white',
               fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
@@ -361,13 +374,21 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
               <MinkoIcon name="edit" size={16} color="white" strokeWidth={1.8}/>
               Edit entry
             </button>
-            <button style={{
+            <button onClick={onPhotosChanged} style={{
               width: 48, height: 48, borderRadius: 12, cursor: 'pointer',
               background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
               border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: dark ? '#f5f1e8' : '#1a1a2e',
             }}>
               <MinkoIcon name="camera" size={18} strokeWidth={1.7}/>
+            </button>
+            <button onClick={onDelete} style={{
+              width: 48, height: 48, borderRadius: 12, cursor: 'pointer',
+              background: dark ? 'rgba(229,83,75,0.15)' : 'rgba(229,83,75,0.08)',
+              border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#e5534b',
+            }}>
+              <MinkoIcon name="trash" size={18} strokeWidth={1.7}/>
             </button>
           </div>
         )}

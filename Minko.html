@@ -29,10 +29,10 @@
 <script type="text/babel" src="ios-frame.jsx?v=6"></script>
 <script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
 <script type="text/babel" src="data.jsx?v=5"></script>
-<script type="text/babel" src="icons.jsx?v=5"></script>
+<script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=7"></script>
-<script type="text/babel" src="screens.jsx?v=6"></script>
-<script type="text/babel" src="flows.jsx?v=12"></script>
+<script type="text/babel" src="screens.jsx?v=7"></script>
+<script type="text/babel" src="flows.jsx?v=13"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -41,7 +41,7 @@ const { useState, useEffect } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "dark": false,
-  "accent": "#4f5bd5",
+  "accent": "#98c1eb",
   "homeVariant": "photo"
 }/*EDITMODE-END*/;
 
@@ -52,6 +52,7 @@ function normalizeEntry(e) {
       ? new Date(e.date_visited + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
       : '',
     photos: Array.isArray(e.photos) ? e.photos : [],
+    links: Array.isArray(e.links) ? e.links : [],
     likes: e.likes || 0,
     likedByMe: false,
     comments: [],
@@ -68,6 +69,9 @@ function App() {
   const [showLogPicker, setShowLogPicker] = useState(false);
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showAddPhoto, setShowAddPhoto] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -212,8 +216,11 @@ function App() {
             <PlaceDetailSheet
               entry={detailEntry} dark={dark} accent={accent}
               friendMode={isFriendMode} friend={isFriendMode ? activeFriend : null}
-              friendsAtPlace={!isFriendMode && activeEntry?.id === 'e1' ? friendsAtBuca : []}
+              friendsAtPlace={[]}
               onClose={() => setShowDetail(false)}
+              onEdit={!isFriendMode ? () => setShowEdit(true) : undefined}
+              onDelete={!isFriendMode ? () => setShowDeleteConfirm(true) : undefined}
+              onPhotosChanged={!isFriendMode ? () => setShowAddPhoto(true) : undefined}
             />
           </BottomSheet>
 
@@ -243,6 +250,39 @@ function App() {
               user={user}
               onClose={() => setShowWishlistAdd(false)}
               onConfirm={handleWishlistAdded}
+            />
+          </BottomSheet>
+
+          {/* Edit entry */}
+          <BottomSheet open={showEdit} onClose={() => setShowEdit(false)} dark={dark}>
+            <EditItemFlow
+              entry={activeEntry} tableKind="entries" dark={dark} accent={accent}
+              onClose={() => setShowEdit(false)}
+              onConfirm={() => { setShowEdit(false); refreshEntries(); }}
+            />
+          </BottomSheet>
+
+          {/* Add / manage photos */}
+          <BottomSheet open={showAddPhoto} onClose={() => setShowAddPhoto(false)} dark={dark}>
+            <AddPhotoSheet
+              entry={activeEntry} tableKind="entries" user={user} dark={dark} accent={accent}
+              onClose={() => setShowAddPhoto(false)}
+              onSave={() => { setShowAddPhoto(false); refreshEntries(); }}
+            />
+          </BottomSheet>
+
+          {/* Delete confirm */}
+          <BottomSheet open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} dark={dark}>
+            <DeleteConfirmSheet
+              entry={activeEntry} tableKind="entries" dark={dark} accent={accent}
+              onClose={() => setShowDeleteConfirm(false)}
+              onConfirm={() => {
+                setShowDeleteConfirm(false);
+                setShowDetail(false);
+                setShowPreview(false);
+                setActivePin(null);
+                refreshEntries();
+              }}
             />
           </BottomSheet>
 

@@ -31,8 +31,8 @@
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=5"></script>
 <script type="text/babel" src="globe.jsx?v=7"></script>
-<script type="text/babel" src="screens.jsx?v=5"></script>
-<script type="text/babel" src="flows.jsx?v=6"></script>
+<script type="text/babel" src="screens.jsx?v=6"></script>
+<script type="text/babel" src="flows.jsx?v=7"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -45,6 +45,19 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "homeVariant": "photo"
 }/*EDITMODE-END*/;
 
+function normalizeEntry(e) {
+  return {
+    ...e,
+    date: e.date_visited
+      ? new Date(e.date_visited + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+      : '',
+    photos: Array.isArray(e.photos) ? e.photos : [],
+    likes: e.likes || 0,
+    likedByMe: false,
+    comments: [],
+  };
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [screen, setScreen] = useState('home');
@@ -56,6 +69,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [entries, setEntries] = useState([]);
 
   useEffect(() => {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
@@ -64,6 +78,18 @@ function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) { setEntries([]); return; }
+    window.sb.from('entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }) => setEntries((data || []).map(normalizeEntry)));
+  }, [user?.id]);
+
+  const refreshEntries = () => {
+    if (!user) return;
+    window.sb.from('entries').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }) => setEntries((data || []).map(normalizeEntry)));
+  };
 
   const handleSignOut = async () => {
     await window.sb.auth.signOut();
@@ -88,10 +114,10 @@ function App() {
     onChange: (s) => { setScreen(s); resetSheets(); },
   };
 
-  const activeEntry = MINKO_ENTRIES.find(e => e.id === activePin);
+  const activeEntry = entries.find(e => e.id === activePin);
   const activeFriendEntry = MINKO_FRIEND_ENTRIES.find(e => e.id === activeFriendPin);
   const activeFriend = activeFriendEntry && MINKO_FRIENDS.find(f => f.id === activeFriendEntry.friendId);
-  const friendsAtBuca = MINKO_FRIENDS_AT_BUCA.filter(id => MINKO_FRIENDS.find(f => f.id === id));
+  const friendsAtBuca = [];
 
   const previewEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
   const previewFriend = screen === 'friends' ? activeFriend : null;
@@ -117,6 +143,7 @@ function App() {
               activePinId={activePin}
               navProps={navProps}
               onLog={() => setShowLog(true)}
+              entries={entries}
             />
           )}
 
@@ -137,6 +164,8 @@ function App() {
               navProps={navProps}
               onLog={() => setShowLog(true)}
               onSignOut={user ? handleSignOut : null}
+              entries={entries}
+              user={user}
             />
           )}
 
@@ -172,7 +201,7 @@ function App() {
             <LogEntryFlow
               dark={dark} accent={accent}
               onClose={() => setShowLog(false)}
-              onConfirm={() => setShowLog(false)}
+              onConfirm={() => { setShowLog(false); refreshEntries(); }}
             />
           </BottomSheet>
 

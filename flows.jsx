@@ -506,26 +506,30 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
-  const [showFriendsList, setShowFriendsList] = useState2(false);
-  const [detailFriend, setDetailFriend] = useState2(null);
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null }) {
   const [showWishlist, setShowWishlist] = useState2(false);
 
-  const avgRating = (MINKO_ENTRIES.reduce((s, e) => s + (e.rating || 0), 0) / MINKO_ENTRIES.length).toFixed(1);
-  const topRated = [...MINKO_ENTRIES].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
+  const joinedDate = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : null;
+  const cities = entries.length > 0
+    ? new Set(entries.map(e => e.location?.split(',')[0].trim()).filter(Boolean)).size
+    : 0;
 
-  const openFriendDetail = (f) => { setDetailFriend(f); };
-  const closeFriendDetail = () => { setDetailFriend(null); };
-  const closeFriendsList = () => { setShowFriendsList(false); setDetailFriend(null); };
+  const avgRating = entries.length > 0
+    ? (entries.reduce((s, e) => s + (e.rating || 0), 0) / entries.length).toFixed(1)
+    : '—';
+  const topRated = [...entries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column' }}>
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
       {/* Top header band */}
       <div style={{ paddingTop: 64, padding: '64px 20px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* Avatar doubles as settings entry */}
         <button onClick={() => {}} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative' }}>
-          <Avatar name="Sasha" color="#7a6ca3" size={56}/>
+          <Avatar name={displayName} color="#7a6ca3" size={56}/>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: '50%',
             background: dark ? '#2a2c38' : '#f0eee8', border: dark ? '1.5px solid rgba(255,255,255,0.08)' : '1.5px solid rgba(20,30,60,0.08)',
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -534,19 +538,12 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
         </button>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, lineHeight: 1.1 }}>
-              Sasha Reyes
+            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, lineHeight: 1.1, flex: 1 }}>
+              {displayName}
             </div>
-            <button onClick={() => setShowFriendsList(true)} style={{
-              display: 'flex', alignItems: 'center', gap: 5, border: 0, cursor: 'pointer', padding: '3px 10px', borderRadius: 20,
-              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)',
-            }}>
-              <MinkoIcon name="friends" size={13} color={dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.6)'} strokeWidth={1.8}/>
-              <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.6)' }}>{MINKO_FRIENDS.length}</span>
-            </button>
             {onSignOut && (
               <button onClick={onSignOut} style={{
-                marginLeft: 'auto', border: 0, cursor: 'pointer', padding: '3px 10px', borderRadius: 20,
+                border: 0, cursor: 'pointer', padding: '3px 10px', borderRadius: 20,
                 background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)',
                 fontFamily: SANS, fontSize: 12, fontWeight: 600,
                 color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.6)',
@@ -554,7 +551,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
             )}
           </div>
           <div style={{ fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>
-            Joined April 2024 · 14 cities
+            {joinedDate ? `Joined ${joinedDate}` : 'Welcome to Minko'}{cities > 0 ? ` · ${cities} ${cities === 1 ? 'city' : 'cities'}` : ''}
           </div>
         </div>
       </div>
@@ -564,23 +561,21 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
         <MinkoGlobe
           dark={dark} accent={accent}
           scrollable={false}
-          pins={MINKO_ENTRIES.map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
+          pins={entries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
           onPinClick={onPin}
         />
       </div>
 
-      {/* Avg rating + Wishlist */}
+      {/* Avg rating + place count */}
       <div style={{ padding: '10px 16px 4px', display: 'flex', gap: 10 }}>
-        {/* Average rating */}
         <div style={{ flex: 1, padding: '14px 16px', borderRadius: 16,
           background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.8)',
           border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
           display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ fontFamily: SERIF, fontSize: 32, fontWeight: 500, lineHeight: 1, color: '#c89e54' }}>{avgRating}</div>
-          <Stars n={Math.round(parseFloat(avgRating))} size={16}/>
-          <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>avg rating · {MINKO_ENTRIES.length} places</div>
+          {entries.length > 0 && <Stars n={Math.round(parseFloat(avgRating))} size={16}/>}
+          <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>avg rating · {entries.length} {entries.length === 1 ? 'place' : 'places'}</div>
         </div>
-        {/* Wishlist button */}
         <button onClick={() => setShowWishlist(true)} style={{ flex: 1, padding: '14px 16px', borderRadius: 16,
           background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.8)',
           border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
@@ -594,9 +589,14 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
       {/* Top rated */}
       <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', fontStyle: 'italic' }}>Top rated</div>
-        <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>See all</span>
+        <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>{entries.length > 0 ? `${entries.length} total` : ''}</span>
       </div>
       <div style={{ padding: '0 16px 160px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {entries.length === 0 && (
+          <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)' }}>
+            Log your first place to see it here
+          </div>
+        )}
         {topRated.slice(0, 5).map(e => (
           <button key={e.id} onClick={() => onPin(e.id)} style={{
             display: 'flex', gap: 12, padding: 12, borderRadius: 14,
@@ -626,16 +626,6 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
       </div>
     </div>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
-      {/* Full-screen overlays — stacked inside the absolute ProfileScreen container */}
-      <FriendsListOverlay
-        open={showFriendsList} dark={dark} accent={accent}
-        onBack={closeFriendsList}
-        onSelectFriend={(f) => { openFriendDetail(f); }}
-      />
-      <FriendDetailOverlay
-        open={!!detailFriend} friend={detailFriend} dark={dark} accent={accent}
-        onBack={closeFriendDetail}
-      />
       <WishlistOverlay
         open={showWishlist} dark={dark} accent={accent}
         onBack={() => setShowWishlist(false)}
@@ -648,167 +638,31 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut }) {
 // FRIENDS GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
 function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
-  const [showFilters, setShowFilters] = useState2(false);
-  const [selectedFriends, setSelectedFriends] = useState2([]);
-  const [categoryFilter, setCategoryFilter] = useState2(null);
-  const [ratingFilter, setRatingFilter] = useState2(null);
-  const [periodDays, setPeriodDays] = useState2(null);
-
-  const toggleFriend = (id) => setSelectedFriends(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  );
-
-  const now = new Date('2026-04-28');
-  const filteredEntries = MINKO_FRIEND_ENTRIES.filter(e => {
-    if (selectedFriends.length > 0 && !selectedFriends.includes(e.friendId)) return false;
-    if (categoryFilter && e.category !== categoryFilter) return false;
-    if (ratingFilter && (e.rating || 0) < ratingFilter) return false;
-    if (periodDays) {
-      const d = new Date(e.date);
-      if ((now - d) / 86400000 > periodDays) return false;
-    }
-    return true;
-  });
-
-  const friendColor = (id) => MINKO_FRIENDS.find(f => f.id === id)?.color || accent;
-  const catColors = window.MINKO_CATEGORY_COLORS || {};
-  const activeFilterCount = (selectedFriends.length > 0 ? 1 : 0) + (categoryFilter ? 1 : 0) + (ratingFilter ? 1 : 0) + (periodDays ? 1 : 0);
-  const hasFilters = activeFilterCount > 0;
-
-  const filterActive = showFilters || hasFilters;
-  const filterBg = filterActive
-    ? (dark ? 'rgba(255,255,255,0.18)' : accent)
-    : (dark ? 'rgba(255,255,255,0.09)' : 'rgba(20,30,60,0.07)');
-  const filterFg = filterActive && !dark ? 'white' : (dark ? '#f5f1e8' : '#1a1a2e');
-
-  const sectionLabel = (text) => (
-    <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase',
-      letterSpacing: 0.7, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 8 }}>{text}</div>
-  );
-
-  const chip = (label, active, onClick, activeColor) => (
-    <button key={label} onClick={onClick} style={{
-      padding: '6px 13px', borderRadius: 999, border: 0, cursor: 'pointer',
-      fontFamily: SANS, fontSize: 12.5, fontWeight: active ? 600 : 500,
-      background: active
-        ? (activeColor || accent)
-        : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
-      color: active ? 'white' : (dark ? '#f5f1e8' : '#1a1a2e'),
-      transition: 'all 0.15s',
-    }}>{label}</button>
-  );
-
-  const catMap = { restaurant: 'Eat', hotel: 'Stay', attraction: 'See', experience: 'Do' };
-
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <MinkoGlobe
-        dark={dark} accent={accent}
-        pins={filteredEntries.map(e => ({
-          id: e.id, lon: e.lon, lat: e.lat,
-          color: friendColor(e.friendId), friend: true,
-        }))}
-        activePinId={activePinId}
-        onPinClick={onPin}
-      />
+      <MinkoGlobe dark={dark} accent={accent} pins={[]} activePinId={null} onPinClick={() => {}}/>
 
       {/* Top bar */}
       <div style={{ position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30 }}>
-        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 8px 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Wordmark dark={dark} size={20}/>
           <span style={{ fontFamily: SERIF, fontSize: 14, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>· friends</span>
-          <div style={{ flex: 1 }}/>
-          <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginRight: 4 }}>
-            {filteredEntries.length} pins
-          </span>
-          <button onClick={() => setShowFilters(v => !v)} style={{
-            position: 'relative', display: 'flex', alignItems: 'center', gap: 6,
-            height: 36, padding: '0 12px', borderRadius: 999, border: 0, cursor: 'pointer',
-            background: filterBg, color: filterFg, transition: 'all 0.18s',
-          }}>
-            <MinkoIcon name="sliders" size={15} strokeWidth={1.8} color={filterFg}/>
-            <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600 }}>Filter</span>
-            {hasFilters && (
-              <span style={{
-                position: 'absolute', top: -5, right: -5, width: 17, height: 17, borderRadius: '50%',
-                background: dark ? '#f5f1e8' : '#1a1a2e', color: dark ? '#0e1018' : 'white',
-                fontSize: 10, fontWeight: 700, fontFamily: SANS,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: `2px solid ${dark ? '#0e1018' : 'white'}`,
-              }}>{activeFilterCount}</span>
-            )}
-          </button>
         </GlassSurface>
       </div>
 
-      {/* Filter panel — drops below top bar */}
-      {showFilters && (
-        <div style={{ position: 'absolute', top: 122, left: 12, right: 12, zIndex: 28 }}>
-          <GlassSurface dark={dark} radius={18} style={{ padding: '14px 14px 10px' }}>
-
-            {/* Friends */}
-            <div style={{ marginBottom: 14 }}>
-              {sectionLabel('Friends')}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {MINKO_FRIENDS.map(f => {
-                  const sel = selectedFriends.includes(f.id);
-                  return (
-                    <button key={f.id} onClick={() => toggleFriend(f.id)} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px 4px 4px',
-                      borderRadius: 999, border: 0, cursor: 'pointer',
-                      background: sel ? `${f.color}22` : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)'),
-                      outline: sel ? `1.5px solid ${f.color}` : 'none', transition: 'all 0.15s',
-                    }}>
-                      <Avatar name={f.name} color={f.color} size={22}/>
-                      <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: sel ? 600 : 500,
-                        color: sel ? f.color : (dark ? '#f5f1e8' : '#1a1a2e') }}>{f.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Category */}
-            <div style={{ marginBottom: 14 }}>
-              {sectionLabel('Category')}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {Object.entries(catMap).map(([id, label]) =>
-                  chip(label, categoryFilter === id, () => setCategoryFilter(categoryFilter === id ? null : id), catColors[id])
-                )}
-              </div>
-            </div>
-
-            {/* Rating */}
-            <div style={{ marginBottom: 14 }}>
-              {sectionLabel('Min rating')}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[{ v: null, l: 'Any' }, { v: 3, l: '3★+' }, { v: 4, l: '4★+' }, { v: 5, l: '5★' }].map(({ v, l }) =>
-                  chip(l, ratingFilter === v, () => setRatingFilter(v), null)
-                )}
-              </div>
-            </div>
-
-            {/* Time period */}
-            <div style={{ marginBottom: hasFilters ? 12 : 0 }}>
-              {sectionLabel('Time period')}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[{ v: null, l: 'Any time' }, { v: 30, l: 'Month' }, { v: 180, l: '6 months' }, { v: 365, l: 'Year' }].map(({ v, l }) =>
-                  chip(l, periodDays === v, () => setPeriodDays(v), null)
-                )}
-              </div>
-            </div>
-
-            {hasFilters && (
-              <button onClick={() => { setSelectedFriends([]); setCategoryFilter(null); setRatingFilter(null); setPeriodDays(null); }} style={{
-                width: '100%', padding: '8px', borderRadius: 10, border: 0, cursor: 'pointer',
-                background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.06)',
-                fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
-                color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)',
-              }}>Clear all filters</button>
-            )}
-          </GlassSurface>
-        </div>
-      )}
+      {/* Empty state */}
+      <div style={{
+        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        zIndex: 20, textAlign: 'center', padding: '0 40px',
+      }}>
+        <GlassSurface dark={dark} radius={20} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <MinkoIcon name="friends" size={32} color={accent} strokeWidth={1.4}/>
+          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3 }}>Friends coming soon</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.5 }}>
+            Connect with friends to see where they've been
+          </div>
+        </GlassSurface>
+      </div>
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>

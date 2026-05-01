@@ -192,9 +192,9 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog }) {
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [] }) {
   const cat = window.MINKO_CATEGORY_COLORS;
-  const pins = MINKO_ENTRIES.map(e => ({
+  const pins = entries.filter(e => e.lon && e.lat).map(e => ({
     id: e.id, lon: e.lon, lat: e.lat,
     color: cat[e.category] || accent,
     photo: variant === 'photo' ? e.photos?.[0] : undefined,
@@ -226,7 +226,6 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
     setCommentDraft('');
   }, [entry?.id]);
   if (!entry) return null;
-  const friendLookup = (id) => MINKO_FRIENDS.find(f => f.id === id);
   const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[entry.category]) || accent;
   const toggleLike = () => {
     setLiked(v => {
@@ -321,47 +320,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
               <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.8}/>
               {likeCount}
             </button>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontFamily: SANS, fontSize: 13, fontWeight: 500,
-              color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
-              <MinkoIcon name="comment" size={15} strokeWidth={1.7}/>
-              {entry.comments?.length || 0} {entry.comments?.length === 1 ? 'comment' : 'comments'}
-            </div>
-            {/* liked-by avatars */}
-            {likeCount > 0 && (
-              <div style={{ display: 'flex', marginLeft: 'auto' }}>
-                {[friendLookup('f1'), friendLookup('f3'), friendLookup('f4')].slice(0, Math.min(3, likeCount)).filter(Boolean).map((f, i) => (
-                  <div key={f.id} style={{ marginLeft: i ? -7 : 0 }}>
-                    <Avatar name={f.name} color={f.color} size={20}/>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-
-          {entry.comments && entry.comments.length > 0 && (
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {entry.comments.map(c => {
-                const f = friendLookup(c.friendId);
-                if (!f) return null;
-                return (
-                  <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <Avatar name={f.name} color={f.color} size={28}/>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{f.name}</span>
-                        <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>{c.date}</span>
-                      </div>
-                      <div style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.35, marginTop: 2,
-                        color: dark ? 'rgba(245,241,232,0.85)' : 'rgba(26,26,46,0.8)', textWrap: 'pretty' }}>
-                        {c.text}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
           {/* Comment composer */}
           <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>

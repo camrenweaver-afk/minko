@@ -48,16 +48,18 @@ function MinkoGlobe({
   dark = false,
   accent = '#4f5bd5',
   pins = [],
-  dots = [],       // ignored — Mapbox base map provides all context
+  dots = [],
   onPinClick,
   activePinId,
   scrollable = true,
-  initialOffset,   // ignored — Mapbox handles pan natively
+  initialOffset,
+  fitToPins = false,
 }) {
   const containerRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markersRef = React.useRef([]);
   const initializedRef = React.useRef(false);
+  const hasFittedRef = React.useRef(false);
 
   // Keep mutable refs so marker callbacks always see fresh values
   const pinsRef = React.useRef(pins);
@@ -99,6 +101,23 @@ function MinkoGlobe({
         'star-intensity': isDark ? 0.7 : 0.0,
       });
     } catch (e) { /* globe projection may not be active yet */ }
+  }, []);
+
+  const fitGlobe = React.useCallback((map) => {
+    const validPins = pinsRef.current.filter(p => p.lon != null && p.lat != null);
+    if (validPins.length === 0) return;
+    if (validPins.length === 1) {
+      map.flyTo({ center: [validPins[0].lon, validPins[0].lat], zoom: 4, duration: 0 });
+    } else {
+      const bounds = validPins.reduce(
+        (b, p) => b.extend([p.lon, p.lat]),
+        new mapboxgl.LngLatBounds(
+          [validPins[0].lon, validPins[0].lat],
+          [validPins[0].lon, validPins[0].lat]
+        )
+      );
+      map.fitBounds(bounds, { padding: 80, maxZoom: 5, duration: 0 });
+    }
   }, []);
 
   const fitMiniMap = React.useCallback((map) => {
@@ -177,10 +196,18 @@ function MinkoGlobe({
   }, [dark]); // eslint-disable-line
 
   // Refresh markers when pins / active pin / accent changes
+  // Also fit to pins on first arrival if fitToPins is set
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     addMarkers();
+    if (fitToPins && !hasFittedRef.current) {
+      const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
+      if (valid.length > 0) {
+        hasFittedRef.current = true;
+        fitGlobe(map);
+      }
+    }
   }, [pins, activePinId, accent]); // eslint-disable-line
 
   const btnStyle = (dark) => ({

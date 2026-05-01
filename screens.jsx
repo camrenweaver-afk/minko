@@ -38,16 +38,27 @@ const Wordmark = ({ dark, size = 22 }) => (
   }}>minko</span>
 );
 
-const Avatar = ({ name, color, size = 28, ring }) => (
-  <div style={{
-    width: size, height: size, borderRadius: '50%',
-    background: color, color: 'white',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: SANS, fontSize: size * 0.42, fontWeight: 600,
-    border: ring ? `2px solid ${ring}` : '2px solid white',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
-    flexShrink: 0,
-  }}>{name?.[0]}</div>
+const Avatar = ({ name, color, size = 28, ring, src }) => (
+  src ? (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      border: ring ? `2px solid ${ring}` : '2px solid white',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+      overflow: 'hidden', flexShrink: 0,
+    }}>
+      <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={name || ''}/>
+    </div>
+  ) : (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: color, color: 'white',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: SANS, fontSize: size * 0.42, fontWeight: 600,
+      border: ring ? `2px solid ${ring}` : '2px solid white',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+      flexShrink: 0,
+    }}>{name?.[0]}</div>
+  )
 );
 
 // Floating glass surface used for top search & FAB
@@ -205,6 +216,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         pins={pins}
         activePinId={activePinId}
         onPinClick={onPin}
+        fitToPins={pins.length > 0}
       />
       <TopSearch dark={dark}/>
       <CategoryLegend dark={dark}/>

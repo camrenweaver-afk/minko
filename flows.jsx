@@ -1336,8 +1336,26 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 
 function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
   const [showWishlist, setShowWishlist] = useState2(false);
+  const [avatarUploading, setAvatarUploading] = useState2(false);
+  const avatarFileRef = useRef2(null);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
+  const avatarUrl = user?.user_metadata?.avatar_url || null;
+
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${user.id}/avatar.${ext}`;
+      await window.sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+      const { data: { publicUrl } } = window.sb.storage.from('avatars').getPublicUrl(path);
+      await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
+    } catch(err) { console.error('Avatar upload error', err); }
+    setAvatarUploading(false);
+    e.target.value = '';
+  };
   const joinedDate = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : null;
@@ -1356,12 +1374,13 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
       {/* Top header band */}
       <div style={{ paddingTop: 64, padding: '64px 20px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={() => {}} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative' }}>
-          <Avatar name={displayName} color="#7a6ca3" size={56}/>
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: '50%',
-            background: dark ? '#2a2c38' : '#f0eee8', border: dark ? '1.5px solid rgba(255,255,255,0.08)' : '1.5px solid rgba(20,30,60,0.08)',
+        <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
+        <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1 }}>
+          <Avatar src={avatarUrl} name={displayName} color="#7a6ca3" size={56}/>
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
+            background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MinkoIcon name="sliders" size={10} color={dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
+            <MinkoIcon name="camera" size={10} color="white" strokeWidth={2}/>
           </div>
         </button>
         <div style={{ flex: 1 }}>
@@ -1471,7 +1490,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
 function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <MinkoGlobe dark={dark} accent={accent} pins={[]} activePinId={null} onPinClick={() => {}}/>
+      <MinkoGlobe dark={dark} accent={accent} pins={[]} activePinId={null} onPinClick={() => {}} fitToPins={false}/>
 
       {/* Top bar */}
       <div style={{ position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30 }}>

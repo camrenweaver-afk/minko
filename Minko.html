@@ -34,7 +34,7 @@
 <script type="text/babel" src="screens.jsx?v=5"></script>
 <script type="text/babel" src="flows.jsx?v=6"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
-<script type="text/babel" src="onboarding.jsx?v=6"></script>
+<script type="text/babel" src="onboarding.jsx?v=7"></script>
 
 <script type="text/babel">
 const { useState, useEffect } = React;
@@ -55,6 +55,7 @@ function App() {
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
@@ -175,12 +176,12 @@ function App() {
             />
           </BottomSheet>
 
-          {/* Onboarding — shown when not authenticated */}
-          {authReady && !user && (
+          {/* Onboarding — shown when not authenticated and not dismissed */}
+          {authReady && !user && !onboardingDismissed && (
             <OnboardingFlow
               dark={dark} accent={accent}
-              onComplete={() => setShowLog(true)}
-              onSkip={() => {}}
+              onComplete={() => { setOnboardingDismissed(true); setShowLog(true); }}
+              onSkip={() => setOnboardingDismissed(true)}
             />
           )}
 

@@ -43,7 +43,17 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
     try {
       if (view === 'emailSignup') {
         const { error: err } = await window.sb.auth.signUp({ email, password });
-        if (err) { setError(err.message); setLoading(false); return; }
+        if (err) {
+          if (err.message.toLowerCase().includes('already') || err.message.toLowerCase().includes('registered')) {
+            setError('');
+            setView('emailSignin');
+            setError('You already have an account. Sign in below.');
+          } else {
+            setError(err.message);
+          }
+          setLoading(false);
+          return;
+        }
         setStep(2);
       } else {
         const { error: err } = await window.sb.auth.signInWithPassword({ email, password });

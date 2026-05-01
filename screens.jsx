@@ -152,7 +152,7 @@ function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
       display: 'flex', gap: 10, alignItems: 'center',
     }}>
       <GlassSurface dark={dark} radius={26} style={{ flex: 1, height: 52, padding: '0 10px 0 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <img src="logo2.png" style={{ height: 26, width: 'auto', display: 'block' }} alt="minko"/>
+        <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block' }} alt="minko"/>
         <div onClick={onTap} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer' }}>
           <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
           <span style={{ fontFamily: SANS, fontSize: 14.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>{placeholder}</span>

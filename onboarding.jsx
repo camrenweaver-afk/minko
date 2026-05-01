@@ -60,7 +60,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
     setError('');
     const { error: err } = await window.sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.href.split('?')[0].split('#')[0] },
     });
     if (err) { setError(err.message); setGoogleLoading(false); }
   };
@@ -82,8 +82,8 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
           display: 'flex', flexDirection: 'column', padding: '0 28px',
           animation: 'minko-fade-in 0.35s ease',
         }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <span style={{ fontFamily: SERIF, fontSize: 54, fontWeight: 500, fontStyle: 'italic', color: textPrimary, letterSpacing: -1.5, lineHeight: 1 }}>minko</span>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <img src="logo.png" alt="Minko" style={{ width: 140, height: 'auto' }}/>
             <span style={{ fontFamily: SANS, fontSize: 13, color: textMuted, letterSpacing: 0.5 }}>
               {mode === 'signup' ? 'Your travel journal' : 'Welcome back'}
             </span>

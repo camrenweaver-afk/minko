@@ -21,10 +21,10 @@
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet"/>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.local.js"></script>
 </head>
 <body>
 <div id="root"></div>
-<script src="config.local.js"></script>
 
 <script type="text/babel" src="ios-frame.jsx?v=5"></script>
 <script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
@@ -33,7 +33,7 @@
 <script type="text/babel" src="globe.jsx?v=7"></script>
 <script type="text/babel" src="screens.jsx?v=5"></script>
 <script type="text/babel" src="flows.jsx?v=6"></script>
-<script type="text/babel" src="supabase-client.jsx?v=1"></script>
+<script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=6"></script>
 
 <script type="text/babel">
@@ -57,12 +57,9 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    window.sb.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user || null);
-      setAuthReady(true);
-    });
-    const { data: { subscription } } = window.sb.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
+      if (event === 'INITIAL_SESSION') setAuthReady(true);
     });
     return () => subscription.unsubscribe();
   }, []);

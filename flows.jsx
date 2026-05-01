@@ -544,10 +544,11 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
 // PROFILE SCREEN
 // ─────────────────────────────────────────────────────────────
 
-// Wishlist overlay — fetches real data, has + FAB
-function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }) {
+// Wishlist overlay — fetches real data, manages its own add sheet inline
+function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemAdded }) {
   const [items, setItems] = useState2([]);
   const [fetching, setFetching] = useState2(false);
+  const [showAdd, setShowAdd] = useState2(false);
 
   useEffect2(() => {
     if (!open || !user) return;
@@ -556,11 +557,21 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }
       .then(({ data }) => { setItems(data || []); setFetching(false); });
   }, [open, refreshKey]);
 
+  const handleAdded = () => {
+    setShowAdd(false);
+    if (user) {
+      window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        .then(({ data }) => setItems(data || []));
+    }
+    if (onItemAdded) onItemAdded();
+  };
+
   const catColor = (cat) => (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[cat]) || accent;
 
   return (
     <SlideOverlay open={open} onBack={onBack} dark={dark} title="Wishlist">
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        {/* Scrollable list */}
         <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '12px 16px 100px' }}>
           {fetching && (
             <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Loading…</div>
@@ -570,7 +581,7 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }
               <MinkoIcon name="bookmark" size={38} color={accent} strokeWidth={1.3}/>
               <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, letterSpacing: -0.3, color: dark ? '#f5f1e8' : '#1a1a2e' }}>No saved places yet</div>
               <div style={{ fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55 }}>Tap + to save a place you want to visit</div>
-              <button onClick={onAdd} style={{
+              <button onClick={() => setShowAdd(true)} style={{
                 marginTop: 8, height: 46, padding: '0 24px', borderRadius: 12, border: 0, cursor: 'pointer',
                 background: accent, color: 'white', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
                 boxShadow: `0 4px 14px ${accent}44`,
@@ -595,8 +606,9 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }
             </div>
           ))}
         </div>
+
         {/* FAB */}
-        <button onClick={onAdd} style={{
+        <button onClick={() => setShowAdd(true)} style={{
           position: 'absolute', right: 20, bottom: 28, width: 52, height: 52,
           borderRadius: '50%', border: 0, cursor: 'pointer',
           background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -604,6 +616,32 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onAdd }
         }}>
           <MinkoIcon name="plus" size={24} color="white" strokeWidth={2.2}/>
         </button>
+
+        {/* Add sheet — rendered inside the overlay so it appears above it */}
+        {showAdd && (
+          <div onClick={() => setShowAdd(false)} style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            background: 'rgba(15,20,40,0.18)', backdropFilter: 'blur(2px)',
+          }}/>
+        )}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 11,
+          background: dark ? '#1c1d28' : '#faf8f3',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',
+          transform: showAdd ? 'translateY(0)' : 'translateY(110%)',
+          transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+          maxHeight: '90%', overflow: 'auto',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+            <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+          </div>
+          <SaveToWishlistFlow
+            dark={dark} accent={accent} user={user}
+            onClose={() => setShowAdd(false)}
+            onConfirm={handleAdded}
+          />
+        </div>
       </div>
     </SlideOverlay>
   );
@@ -742,7 +780,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onOpenWishlistAdd }) {
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
   const [showWishlist, setShowWishlist] = useState2(false);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
@@ -867,7 +905,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         onBack={() => setShowWishlist(false)}
         user={user}
         refreshKey={wishlistRefreshKey}
-        onAdd={onOpenWishlistAdd}
+        onItemAdded={onWishlistItemAdded}
       />
     </div>
   );

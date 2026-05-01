@@ -166,7 +166,15 @@ function MinkoGlobe({
     map.on('load', () => {
       if (!isMini) setAtmosphere(map, isDark);
       addMarkers();
-      if (isMini) fitMiniMap(map);
+      if (isMini) {
+        fitMiniMap(map);
+      } else if (fitToPins) {
+        const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
+        if (valid.length > 0) {
+          hasFittedRef.current = true;
+          fitGlobe(map);
+        }
+      }
     });
 
     return () => {

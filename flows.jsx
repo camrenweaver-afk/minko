@@ -1586,9 +1586,14 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   };
 
   const sendRequest = async (addresseeId) => {
+    if (!user?.id) return;
     // Optimistic update — show "Sent" immediately
     setPendingSent(prev => new Set([...prev, addresseeId]));
-    const { error } = await window.sb.from('friendships').insert({ requester_id: user.id, addressee_id: addresseeId });
+    // Upsert so a previously-declined request gets re-opened instead of hitting unique_friendship constraint
+    const { error } = await window.sb.from('friendships').upsert(
+      { requester_id: user.id, addressee_id: addresseeId, status: 'pending' },
+      { onConflict: 'requester_id,addressee_id', ignoreDuplicates: false }
+    );
     if (error) {
       console.error('sendRequest error:', error.message);
       setPendingSent(prev => { const s = new Set(prev); s.delete(addresseeId); return s; });
@@ -1753,57 +1758,69 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
 
-      {/* Friend profile sheet — slides up over everything */}
+      {/* Friend full-page profile view */}
       {viewingProfile && (() => {
         const { profile, entries: pEntries } = viewingProfile;
         const fs = getFs(profile.id);
         const isSent = pendingSent.has(profile.id) || (fs?.requester_id === user?.id && fs?.status === 'pending');
         const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
         const isAccepted = fs?.status === 'accepted';
+        const pageBg = dark ? '#0e1018' : '#f4f1eb';
+        const cardBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.72)';
+        const SAFE_TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))';
+        const SAFE_BOT = 'max(24px, calc(env(safe-area-inset-bottom) + 12px))';
         return (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column' }}>
-            <div onClick={() => setViewingProfile(null)} style={{ flex: 1, background: 'rgba(0,0,0,0.22)' }}/>
-            <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '82%', display: 'flex', flexDirection: 'column' }}>
-              {/* Handle */}
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
-                <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
-              </div>
-              {/* Header */}
-              <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={60}/>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: labelText, letterSpacing: -0.3 }}>{profile.display_name || 'User'}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedText, marginTop: 2 }}>{pEntries.length} {pEntries.length === 1 ? 'place logged' : 'places logged'}</div>
+          <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: pageBg, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+            {/* Top bar */}
+            <div style={{ paddingTop: SAFE_TOP, paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <button onClick={() => setViewingProfile(null)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', display: 'flex', alignItems: 'center', color: accent }}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelText, flex: 1 }}>Profile</span>
+              {isAccepted
+                ? <_FriendPillBtn onClick={() => { removeFs(fs.id); setViewingProfile(null); }} label="Remove Friend" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
+                : isSent
+                ? <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: mutedText, paddingRight: 4 }}>Request Sent</span>
+                : isIncoming
+                ? <_FriendPillBtn onClick={() => acceptRequest(fs.id)} label="Accept" bg={accent} color="white"/>
+                : <_FriendPillBtn onClick={() => sendRequest(profile.id)} label="Add Friend" bg={accent} color="white"/>}
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: SAFE_BOT }}>
+              {/* Hero card */}
+              <div style={{ margin: '8px 16px 20px', background: cardBg, borderRadius: 20, padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+                <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={80}/>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 500, color: labelText, letterSpacing: -0.4 }}>{profile.display_name || 'User'}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, color: mutedText, marginTop: 4 }}>
+                    {profileLoading ? 'Loading…' : `${pEntries.length} ${pEntries.length === 1 ? 'place logged' : 'places logged'}`}
+                  </div>
                 </div>
-                {isAccepted
-                  ? <_FriendPillBtn onClick={() => { const f = fs; removeFs(f.id); setViewingProfile(null); }} label="Remove" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
-                  : isSent
-                  ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: mutedText }}>Sent</span>
-                  : isIncoming
-                  ? <_FriendPillBtn onClick={() => { acceptRequest(fs.id); }} label="Accept" bg={accent} color="white"/>
-                  : <_FriendPillBtn onClick={() => sendRequest(profile.id)} label="Add Friend" bg={accent} color="white"/>}
               </div>
-              {/* Entry list */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
+
+              {/* Places section */}
+              <div style={{ padding: '0 16px' }}>
+                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', color: mutedText, marginBottom: 10 }}>Places</div>
                 {profileLoading ? (
-                  <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>Loading…</div>
+                  <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>Loading…</div>
                 ) : pEntries.length === 0 ? (
-                  <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>No places logged yet</div>
+                  <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>No places logged yet</div>
                 ) : pEntries.map((e, i) => (
-                  <div key={e.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < pEntries.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none' }}>
+                  <div key={e.id} style={{ display: 'flex', gap: 12, padding: '11px 0', borderBottom: i < pEntries.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
                     {e.photos?.[0] ? (
-                      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
                         <img src={e.photos[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt=""/>
                       </div>
                     ) : (
-                      <div style={{ width: 52, height: 52, borderRadius: 10, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <MinkoIcon name="pin" size={20} color={mutedText} strokeWidth={1.4}/>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <MinkoIcon name="pin" size={22} color={mutedText} strokeWidth={1.4}/>
                       </div>
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name || 'Unnamed place'}</div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || e.name || 'Unnamed place'}</div>
                       <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
-                      {e.rating > 0 && <Stars n={e.rating} size={11} color="#c89e54"/>}
+                      {e.rating > 0 && <div style={{ marginTop: 3 }}><Stars n={e.rating} size={11} color="#c89e54"/></div>}
                     </div>
                   </div>
                 ))}

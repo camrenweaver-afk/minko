@@ -1511,12 +1511,24 @@ function normalizeFriendEntry(e, profile) {
   };
 }
 
+// ─── small reusable buttons (defined outside component to avoid remount) ────
+function _FriendPillBtn({ onClick, label, bg, color }) {
+  return (
+    <button onClick={onClick} style={{ border: 0, padding: '6px 14px', borderRadius: 20, background: bg, color, fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+      {label}
+    </button>
+  );
+}
+
 function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user, friendEntries = [], onFriendEntriesChange }) {
   const [searchQuery, setSearchQuery] = useState2('');
   const [searchResults, setSearchResults] = useState2([]);
   const [searching, setSearching] = useState2(false);
   const [friendships, setFriendships] = useState2([]);
   const [loading, setLoading] = useState2(false);
+  const [pendingSent, setPendingSent] = useState2(new Set());
+  const [viewingProfile, setViewingProfile] = useState2(null);   // { profile, entries }
+  const [profileLoading, setProfileLoading] = useState2(false);
   const searchTimer = useRef2(null);
 
   const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
@@ -1574,22 +1586,36 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   };
 
   const sendRequest = async (addresseeId) => {
-    await window.sb.from('friendships').insert({ requester_id: user.id, addressee_id: addresseeId });
-    loadFriendships();
+    // Optimistic update — show "Sent" immediately
+    setPendingSent(prev => new Set([...prev, addresseeId]));
+    const { error } = await window.sb.from('friendships').insert({ requester_id: user.id, addressee_id: addresseeId });
+    if (error) {
+      console.error('sendRequest error:', error.message);
+      setPendingSent(prev => { const s = new Set(prev); s.delete(addresseeId); return s; });
+    } else {
+      loadFriendships();
+    }
   };
 
   const acceptRequest = async (id) => {
-    await window.sb.from('friendships').update({ status: 'accepted' }).eq('id', id);
-    loadFriendships();
+    const { error } = await window.sb.from('friendships').update({ status: 'accepted' }).eq('id', id);
+    if (!error) loadFriendships();
+    else console.error('acceptRequest error:', error.message);
   };
 
   const removeFs = async (id) => {
+    const fs = friendships.find(f => f.id === id);
     await window.sb.from('friendships').delete().eq('id', id);
     loadFriendships();
-    onFriendEntriesChange?.(friendEntries.filter(e => {
-      const fs = friendships.find(f => f.id === id);
-      return !fs || (e.user_id !== fs.requester_id && e.user_id !== fs.addressee_id);
-    }));
+    if (fs) onFriendEntriesChange?.(friendEntries.filter(e => e.user_id !== fs.requester_id && e.user_id !== fs.addressee_id));
+  };
+
+  const openProfile = async (profile) => {
+    setViewingProfile({ profile, entries: [] });
+    setProfileLoading(true);
+    const { data } = await window.sb.from('entries').select('*').eq('user_id', profile.id).order('created_at', { ascending: false });
+    setViewingProfile({ profile, entries: (data || []).map(e => normalizeFriendEntry(e, profile)) });
+    setProfileLoading(false);
   };
 
   const getFs = (profileId) => friendships.find(f => f.requester_id === profileId || f.addressee_id === profileId);
@@ -1599,17 +1625,22 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const accepted = friendships.filter(f => f.status === 'accepted');
   const showSearch = searchQuery.trim().length >= 2;
   const showPanel = showSearch || incoming.length > 0 || accepted.length > 0;
-
   const pins = friendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
-
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
+  const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
+  const labelText = dark ? '#f5f1e8' : '#1a1a2e';
 
-  const AddBtn = ({ onPress, label }) => (
-    <button onClick={onPress} style={{ border: 0, padding: '5px 13px', borderRadius: 20, background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)', color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
-  );
-
-  const AccentBtn = ({ onPress, label }) => (
-    <button onClick={onPress} style={{ border: 0, padding: '5px 13px', borderRadius: 20, background: accent, color: 'white', fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+  const FriendRow = ({ profile, right, onRowPress }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <button onClick={() => openProfile(profile)} style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, flex: 1, textAlign: 'left' }}>
+        <Avatar src={profile?.avatar_url} name={profile?.display_name} color="#7a6ca3" size={40}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.display_name || 'User'}</div>
+          {onRowPress && <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 1 }}>{onRowPress}</div>}
+        </div>
+      </button>
+      {right}
+    </div>
   );
 
   return (
@@ -1626,10 +1657,10 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
             value={searchQuery}
             onChange={e => handleSearch(e.target.value)}
             placeholder="Search friends by name…"
-            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: SANS, fontSize: 14.5, color: dark ? '#f5f1e8' : '#1a1a2e' }}
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: SANS, fontSize: 14.5, color: labelText }}
           />
           {searchQuery ? (
-            <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', display: 'flex', alignItems: 'center' }}>
+            <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedText, display: 'flex', alignItems: 'center' }}>
               <MinkoIcon name="close" size={16} strokeWidth={2.2}/>
             </button>
           ) : incoming.length > 0 ? (
@@ -1646,24 +1677,25 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           {showSearch ? (
             <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
               {searching ? (
-                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', textAlign: 'center' }}>Searching…</div>
+                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>Searching…</div>
               ) : searchResults.length === 0 ? (
-                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', textAlign: 'center' }}>No users found</div>
+                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>No users found</div>
               ) : searchResults.map((p, i) => {
                 const fs = getFs(p.id);
-                const isSent = fs?.requester_id === user?.id && fs?.status === 'pending';
+                const isSent = pendingSent.has(p.id) || (fs?.requester_id === user?.id && fs?.status === 'pending');
                 const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
                 const isAccepted = fs?.status === 'accepted';
                 return (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, searchResults.length) }}>
-                    <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={40}/>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p.display_name || 'User'}</div>
-                    </div>
-                    {isAccepted ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent }}>Friends</span>
-                      : isSent ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Sent</span>
-                      : isIncoming ? <AccentBtn onPress={() => acceptRequest(fs.id)} label="Accept"/>
-                      : <AddBtn onPress={() => sendRequest(p.id)} label="Add"/>}
+                  <div key={p.id} style={{ padding: '10px 16px', ...sep(i, searchResults.length) }}>
+                    <FriendRow profile={p} right={
+                      isAccepted
+                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent, flexShrink: 0 }}>Friends</span>
+                        : isSent
+                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: mutedText, flexShrink: 0 }}>Sent</span>
+                        : isIncoming
+                        ? <_FriendPillBtn onClick={() => acceptRequest(fs.id)} label="Accept" bg={accent} color="white"/>
+                        : <_FriendPillBtn onClick={() => sendRequest(p.id)} label="Add" bg={dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)'} color={labelText}/>
+                    }/>
                   </div>
                 );
               })}
@@ -1671,41 +1703,32 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           ) : <>
             {incoming.length > 0 && (
               <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-                <div style={{ padding: '10px 16px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friend Requests</div>
-                {incoming.map((f, i) => {
-                  const p = f.requester;
-                  return (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, incoming.length) }}>
-                      <Avatar src={p?.avatar_url} name={p?.display_name} color="#7a6ca3" size={40}/>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p?.display_name || 'Someone'}</div>
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>Wants to be friends</div>
-                      </div>
+                <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friend Requests</div>
+                {incoming.map((f, i) => (
+                  <div key={f.id} style={{ padding: '10px 16px', ...sep(i, incoming.length) }}>
+                    <FriendRow profile={f.requester} onRowPress="Wants to be friends" right={
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <AddBtn onPress={() => removeFs(f.id)} label="Decline"/>
-                        <AccentBtn onPress={() => acceptRequest(f.id)} label="Accept"/>
+                        <_FriendPillBtn onClick={() => removeFs(f.id)} label="Decline" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.07)'} color={mutedText}/>
+                        <_FriendPillBtn onClick={() => acceptRequest(f.id)} label="Accept" bg={accent} color="white"/>
                       </div>
-                    </div>
-                  );
-                })}
+                    }/>
+                  </div>
+                ))}
               </GlassSurface>
             )}
             {accepted.length > 0 && (
               <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-                <div style={{ padding: '10px 16px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
+                <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
                 {accepted.map((f, i) => {
                   const p = getFriendProfile(f);
                   const count = friendEntries.filter(e => e.user_id === p?.id).length;
                   return (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, accepted.length) }}>
-                      <Avatar src={p?.avatar_url} name={p?.display_name} color="#7a6ca3" size={40}/>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p?.display_name || 'Friend'}</div>
-                        <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>{count} {count === 1 ? 'place' : 'places'}</div>
-                      </div>
-                      <button onClick={() => removeFs(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)', display: 'flex', alignItems: 'center' }}>
-                        <MinkoIcon name="close" size={15} strokeWidth={2}/>
-                      </button>
+                    <div key={f.id} style={{ padding: '10px 16px', ...sep(i, accepted.length) }}>
+                      <FriendRow profile={p} onRowPress={`${count} ${count === 1 ? 'place' : 'places'}`} right={
+                        <button onClick={() => removeFs(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 6, color: mutedText, display: 'flex', alignItems: 'center' }}>
+                          <MinkoIcon name="close" size={15} strokeWidth={2}/>
+                        </button>
+                      }/>
                     </div>
                   );
                 })}
@@ -1721,14 +1744,74 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Find your friends</div>
-              <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>Search by name above to add friends and see their travels on the globe</div>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: labelText }}>Find your friends</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 2 }}>Search by name above to add friends and see their travels on the globe</div>
             </div>
           </GlassSurface>
         </div>
       )}
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
+
+      {/* Friend profile sheet — slides up over everything */}
+      {viewingProfile && (() => {
+        const { profile, entries: pEntries } = viewingProfile;
+        const fs = getFs(profile.id);
+        const isSent = pendingSent.has(profile.id) || (fs?.requester_id === user?.id && fs?.status === 'pending');
+        const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
+        const isAccepted = fs?.status === 'accepted';
+        return (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column' }}>
+            <div onClick={() => setViewingProfile(null)} style={{ flex: 1, background: 'rgba(0,0,0,0.22)' }}/>
+            <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '82%', display: 'flex', flexDirection: 'column' }}>
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+                <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+              </div>
+              {/* Header */}
+              <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={60}/>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: labelText, letterSpacing: -0.3 }}>{profile.display_name || 'User'}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedText, marginTop: 2 }}>{pEntries.length} {pEntries.length === 1 ? 'place logged' : 'places logged'}</div>
+                </div>
+                {isAccepted
+                  ? <_FriendPillBtn onClick={() => { const f = fs; removeFs(f.id); setViewingProfile(null); }} label="Remove" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
+                  : isSent
+                  ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: mutedText }}>Sent</span>
+                  : isIncoming
+                  ? <_FriendPillBtn onClick={() => { acceptRequest(fs.id); }} label="Accept" bg={accent} color="white"/>
+                  : <_FriendPillBtn onClick={() => sendRequest(profile.id)} label="Add Friend" bg={accent} color="white"/>}
+              </div>
+              {/* Entry list */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
+                {profileLoading ? (
+                  <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>Loading…</div>
+                ) : pEntries.length === 0 ? (
+                  <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>No places logged yet</div>
+                ) : pEntries.map((e, i) => (
+                  <div key={e.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < pEntries.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none' }}>
+                    {e.photos?.[0] ? (
+                      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={e.photos[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt=""/>
+                      </div>
+                    ) : (
+                      <div style={{ width: 52, height: 52, borderRadius: 10, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <MinkoIcon name="pin" size={20} color={mutedText} strokeWidth={1.4}/>
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name || 'Unnamed place'}</div>
+                      <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
+                      {e.rating > 0 && <Stars n={e.rating} size={11} color="#c89e54"/>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

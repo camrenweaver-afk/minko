@@ -1496,31 +1496,237 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
 // ─────────────────────────────────────────────────────────────
 // FRIENDS GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
+function normalizeFriendEntry(e, profile) {
+  return {
+    ...e,
+    _ownerProfile: profile || null,
+    date: e.date_visited
+      ? new Date(e.date_visited + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+      : '',
+    photos: Array.isArray(e.photos) ? e.photos : [],
+    links: Array.isArray(e.links) ? e.links : [],
+    likes: e.likes || 0,
+    likedByMe: false,
+    comments: [],
+  };
+}
+
+function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user, friendEntries = [], onFriendEntriesChange }) {
+  const [searchQuery, setSearchQuery] = useState2('');
+  const [searchResults, setSearchResults] = useState2([]);
+  const [searching, setSearching] = useState2(false);
+  const [friendships, setFriendships] = useState2([]);
+  const [loading, setLoading] = useState2(false);
+  const searchTimer = useRef2(null);
+
+  const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
+  const PANEL_TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 68px)';
+  const PANEL_BOT = 'max(90px, calc(env(safe-area-inset-bottom) + 90px))';
+
+  const loadFriendships = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data: fs } = await window.sb.from('friendships')
+        .select('id, status, created_at, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+      setFriendships(fs || []);
+
+      const acceptedIds = (fs || [])
+        .filter(f => f.status === 'accepted')
+        .map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id);
+
+      if (acceptedIds.length > 0) {
+        // Build a profile lookup map
+        const profileMap = {};
+        (fs || []).forEach(f => {
+          if (f.requester) profileMap[f.requester_id] = f.requester;
+          if (f.addressee) profileMap[f.addressee_id] = f.addressee;
+        });
+        const { data: entries } = await window.sb.from('entries').select('*').in('user_id', acceptedIds);
+        onFriendEntriesChange?.((entries || []).map(e => normalizeFriendEntry(e, profileMap[e.user_id])));
+      } else {
+        onFriendEntriesChange?.([]);
+      }
+    } catch (err) { console.error('loadFriendships', err); }
+    setLoading(false);
+  };
+
+  useEffect2(() => {
+    if (user) loadFriendships();
+    else { setFriendships([]); onFriendEntriesChange?.([]); }
+  }, [user?.id]);
+
+  const handleSearch = (val) => {
+    setSearchQuery(val);
+    clearTimeout(searchTimer.current);
+    if (val.trim().length < 2) { setSearchResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      setSearching(true);
+      const { data } = await window.sb.from('profiles')
+        .select('id, display_name, avatar_url')
+        .ilike('display_name', `%${val.trim()}%`)
+        .neq('id', user?.id || '')
+        .limit(20);
+      setSearchResults(data || []);
+      setSearching(false);
+    }, 300);
+  };
+
+  const sendRequest = async (addresseeId) => {
+    await window.sb.from('friendships').insert({ requester_id: user.id, addressee_id: addresseeId });
+    loadFriendships();
+  };
+
+  const acceptRequest = async (id) => {
+    await window.sb.from('friendships').update({ status: 'accepted' }).eq('id', id);
+    loadFriendships();
+  };
+
+  const removeFs = async (id) => {
+    await window.sb.from('friendships').delete().eq('id', id);
+    loadFriendships();
+    onFriendEntriesChange?.(friendEntries.filter(e => {
+      const fs = friendships.find(f => f.id === id);
+      return !fs || (e.user_id !== fs.requester_id && e.user_id !== fs.addressee_id);
+    }));
+  };
+
+  const getFs = (profileId) => friendships.find(f => f.requester_id === profileId || f.addressee_id === profileId);
+  const getFriendProfile = (f) => f.requester_id === user?.id ? f.addressee : f.requester;
+
+  const incoming = friendships.filter(f => f.addressee_id === user?.id && f.status === 'pending');
+  const accepted = friendships.filter(f => f.status === 'accepted');
+  const showSearch = searchQuery.trim().length >= 2;
+  const showPanel = showSearch || incoming.length > 0 || accepted.length > 0;
+
+  const pins = friendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
+
+  const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
+
+  const AddBtn = ({ onPress, label }) => (
+    <button onClick={onPress} style={{ border: 0, padding: '5px 13px', borderRadius: 20, background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)', color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+  );
+
+  const AccentBtn = ({ onPress, label }) => (
+    <button onClick={onPress} style={{ border: 0, padding: '5px 13px', borderRadius: 20, background: accent, color: 'white', fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
+  );
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <MinkoGlobe dark={dark} accent={accent} pins={[]} activePinId={null} onPinClick={() => {}} fitToPins={false}/>
-
+      <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0}/>
       <SafeTopBar dark={dark}/>
 
-      {/* Top bar */}
-      <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', left: 12, right: 12, zIndex: 30 }}>
-        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block' }} alt="minko"/>
-          <span style={{ fontFamily: SERIF, fontSize: 14, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>· friends</span>
+      {/* Search bar */}
+      <div style={{ position: 'absolute', top: TOP, left: 12, right: 12, zIndex: 30 }}>
+        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 12px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
+          <MinkoIcon name="search" size={17} color={dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)'} strokeWidth={1.8}/>
+          <input
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+            placeholder="Search friends by name…"
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: SANS, fontSize: 14.5, color: dark ? '#f5f1e8' : '#1a1a2e' }}
+          />
+          {searchQuery ? (
+            <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', display: 'flex', alignItems: 'center' }}>
+              <MinkoIcon name="close" size={16} strokeWidth={2.2}/>
+            </button>
+          ) : incoming.length > 0 ? (
+            <div style={{ width: 20, height: 20, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: 'white' }}>{incoming.length}</span>
+            </div>
+          ) : null}
         </GlassSurface>
       </div>
 
-      {/* Banner — sits just below the top bar */}
-      <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 72px)', left: 12, right: 12, zIndex: 20 }}>
-        <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Add friends to see their recommendations</div>
-            <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>Friends feature coming soon</div>
-          </div>
-        </GlassSurface>
-      </div>
+      {/* Panel */}
+      {showPanel && (
+        <div style={{ position: 'absolute', top: PANEL_TOP, left: 12, right: 12, bottom: PANEL_BOT, zIndex: 25, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {showSearch ? (
+            <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
+              {searching ? (
+                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', textAlign: 'center' }}>Searching…</div>
+              ) : searchResults.length === 0 ? (
+                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', textAlign: 'center' }}>No users found</div>
+              ) : searchResults.map((p, i) => {
+                const fs = getFs(p.id);
+                const isSent = fs?.requester_id === user?.id && fs?.status === 'pending';
+                const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
+                const isAccepted = fs?.status === 'accepted';
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, searchResults.length) }}>
+                    <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={40}/>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p.display_name || 'User'}</div>
+                    </div>
+                    {isAccepted ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent }}>Friends</span>
+                      : isSent ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Sent</span>
+                      : isIncoming ? <AccentBtn onPress={() => acceptRequest(fs.id)} label="Accept"/>
+                      : <AddBtn onPress={() => sendRequest(p.id)} label="Add"/>}
+                  </div>
+                );
+              })}
+            </GlassSurface>
+          ) : <>
+            {incoming.length > 0 && (
+              <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
+                <div style={{ padding: '10px 16px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friend Requests</div>
+                {incoming.map((f, i) => {
+                  const p = f.requester;
+                  return (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, incoming.length) }}>
+                      <Avatar src={p?.avatar_url} name={p?.display_name} color="#7a6ca3" size={40}/>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p?.display_name || 'Someone'}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>Wants to be friends</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <AddBtn onPress={() => removeFs(f.id)} label="Decline"/>
+                        <AccentBtn onPress={() => acceptRequest(f.id)} label="Accept"/>
+                      </div>
+                    </div>
+                  );
+                })}
+              </GlassSurface>
+            )}
+            {accepted.length > 0 && (
+              <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
+                <div style={{ padding: '10px 16px 6px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
+                {accepted.map((f, i) => {
+                  const p = getFriendProfile(f);
+                  const count = friendEntries.filter(e => e.user_id === p?.id).length;
+                  return (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', ...sep(i, accepted.length) }}>
+                      <Avatar src={p?.avatar_url} name={p?.display_name} color="#7a6ca3" size={40}/>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{p?.display_name || 'Friend'}</div>
+                        <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>{count} {count === 1 ? 'place' : 'places'}</div>
+                      </div>
+                      <button onClick={() => removeFs(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)', display: 'flex', alignItems: 'center' }}>
+                        <MinkoIcon name="close" size={15} strokeWidth={2}/>
+                      </button>
+                    </div>
+                  );
+                })}
+              </GlassSurface>
+            )}
+          </>}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!showPanel && !loading && (
+        <div style={{ position: 'absolute', top: PANEL_TOP, left: 12, right: 12, zIndex: 20 }}>
+          <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Find your friends</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>Search by name above to add friends and see their travels on the globe</div>
+            </div>
+          </GlassSurface>
+        </div>
+      )}
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>

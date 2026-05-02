@@ -42,7 +42,7 @@
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=10"></script>
 <script type="text/babel" src="screens.jsx?v=11"></script>
-<script type="text/babel" src="flows.jsx?v=18"></script>
+<script type="text/babel" src="flows.jsx?v=19"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -86,6 +86,7 @@ function App() {
   const [editKey, setEditKey] = useState(0);
   const [photoKey, setPhotoKey] = useState(0);
   const [activeFriendPin, setActiveFriendPin] = useState(null);
+  const [friendEntries, setFriendEntries] = useState([]);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -96,6 +97,15 @@ function App() {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
       if (event === 'INITIAL_SESSION') setAuthReady(true);
+      if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        const u = session.user;
+        window.sb.from('profiles').upsert({
+          id: u.id,
+          display_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+          avatar_url: u.user_metadata?.avatar_url || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' }).then(() => {});
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -151,8 +161,8 @@ function App() {
   };
 
   const activeEntry = entries.find(e => e.id === activePin);
-  const activeFriendEntry = MINKO_FRIEND_ENTRIES.find(e => e.id === activeFriendPin);
-  const activeFriend = activeFriendEntry && MINKO_FRIENDS.find(f => f.id === activeFriendEntry.friendId);
+  const activeFriendEntry = friendEntries.find(e => e.id === activeFriendPin);
+  const activeFriend = activeFriendEntry?._ownerProfile || null;
   const friendsAtBuca = [];
 
   const previewEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
@@ -203,6 +213,9 @@ function App() {
               activePinId={activeFriendPin}
               navProps={navProps}
               onLog={() => setShowLogPicker(true)}
+              user={user}
+              friendEntries={friendEntries}
+              onFriendEntriesChange={setFriendEntries}
             />
           )}
 

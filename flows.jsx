@@ -769,10 +769,29 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
   const [note, setNote] = useState2('');
   const [links, setLinks] = useState2([]);
   const [linkInput, setLinkInput] = useState2('');
+  const [photos, setPhotos] = useState2([]);
+  const [uploading, setUploading] = useState2(false);
   const [query, setQuery] = useState2('');
   const [results, setResults] = useState2([]);
   const [loading, setLoading] = useState2(false);
   const [sessionToken] = useState2(() => 'minko-' + Math.random().toString(36).slice(2));
+  // Stable temp folder ID used as the storage path before the entry has a real DB id
+  const tempFolderRef = useRef2('tmp-' + Math.random().toString(36).slice(2));
+  const photoInputRef = useRef2(null);
+
+  const handlePhotoFiles = async (files) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (!user) return;
+      const uploads = await Promise.all(Array.from(files).map(f =>
+        uploadPhoto(user.id, 'entries', tempFolderRef.current, f)
+      ));
+      setPhotos(prev => [...prev, ...uploads]);
+    } catch (e) { console.error('photo upload error', e); }
+    setUploading(false);
+  };
 
   useEffect2(() => {
     if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
@@ -964,6 +983,34 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
             </div>
           </div>
 
+          {/* Photos */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 10 }}>Photos</div>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              {photos.map((url, i) => (
+                <div key={url} style={{ position: 'relative', flexShrink: 0 }}>
+                  <img src={url} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', display: 'block' }} alt=""/>
+                  <button onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
+                    style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 0, cursor: 'pointer',
+                      background: 'rgba(0,0,0,0.55)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    <MinkoIcon name="close" size={11} strokeWidth={2.5} color="white"/>
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => photoInputRef.current?.click()}
+                disabled={uploading}
+                style={{ width: 72, height: 72, borderRadius: 12, border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.18)'}`,
+                  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)', cursor: uploading ? 'default' : 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
+                {uploading
+                  ? <span style={{ fontFamily: SANS, fontSize: 10, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>…</span>
+                  : <MinkoIcon name="camera" size={22} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>}
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
+                onChange={e => { handlePhotoFiles(e.target.files); e.target.value = ''; }}/>
+            </div>
+          </div>
+
           {/* Note */}
           <div style={{ marginBottom: 16 }}>
             <textarea
@@ -1028,7 +1075,7 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           }}>Back</button>
         )}
         <button
-          disabled={(step === 1 && !place) || (step === 2 && !category) || (step === 3 && !rating)}
+          disabled={(step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || uploading))}
           onClick={async () => {
             if (step < 3) { setStep(step + 1); return; }
             if (window.sb) {
@@ -1045,6 +1092,7 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
                   lat: place.lat || null,
                   date_visited: new Date().toISOString().split('T')[0],
                   links: links.length ? links : [],
+                  photos: photos.length ? photos : [],
                 });
               }
             }
@@ -1052,11 +1100,11 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           }}
           style={{
             flex: 1, height: 50, borderRadius: 12, border: 0, cursor: 'pointer',
-            background: ((step === 1 && !place) || (step === 2 && !category) || (step === 3 && !rating))
+            background: ((step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || uploading)))
               ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
             color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
           }}>
-          {step < 3 ? 'Continue' : 'Drop pin'}
+          {step < 3 ? 'Continue' : uploading ? 'Uploading…' : 'Drop pin'}
         </button>
       </div>
     </div>

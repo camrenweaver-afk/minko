@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <title>Minko — Travel Journal</title>
 <link rel="icon" href="logo.png"/>
 <link rel="apple-touch-icon" href="logo.png"/>
@@ -33,7 +35,7 @@
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=9"></script>
-<script type="text/babel" src="screens.jsx?v=9"></script>
+<script type="text/babel" src="screens.jsx?v=10"></script>
 <script type="text/babel" src="flows.jsx?v=17"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
@@ -125,6 +127,7 @@ function App() {
 
   const dark = t.dark;
   const accent = t.accent;
+  const isMobile = window.innerWidth <= 600;
 
   const resetSheets = () => {
     setShowPreview(false);
@@ -151,16 +154,29 @@ function App() {
   const isFriendMode = screen === 'friends';
   const detailEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
 
+  const appShell = isMobile ? {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    overflow: 'hidden',
+  } : {
+    width: 402, height: 874, borderRadius: 48, overflow: 'hidden',
+    position: 'relative', flexShrink: 0,
+    boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+  };
+
   return (
     <div style={{
-      width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: dark
-        ? 'radial-gradient(ellipse at 50% 30%, #1d1f2c 0%, #0e1018 100%)'
-        : 'radial-gradient(ellipse at 50% 30%, #f5f0e4 0%, #e3dccb 100%)',
+      width: '100%', height: '100%',
+      display: isMobile ? 'block' : 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      background: isMobile
+        ? (dark ? '#0e1018' : '#cfe1ee')
+        : (dark
+          ? 'radial-gradient(ellipse at 50% 30%, #1d1f2c 0%, #0e1018 100%)'
+          : 'radial-gradient(ellipse at 50% 30%, #f5f0e4 0%, #e3dccb 100%)'),
       transition: 'background 0.3s',
     }}>
-      <IOSDevice dark={dark} width={402} height={874}>
-        <div style={{ position: 'relative', width: '100%', height: '100%', background: dark ? '#0e1018' : '#cfe1ee', overflow: 'clip' }}>
+      <div style={appShell}>
+        <div style={{ position: 'relative', width: '100%', height: '100%', background: dark ? '#0e1018' : '#cfe1ee', overflow: 'hidden' }}>
 
           {screen === 'home' && (
             <HomeScreen
@@ -301,9 +317,9 @@ function App() {
           )}
 
         </div>
-      </IOSDevice>
+      </div>
 
-      <TweaksPanel title="Tweaks">
+      {!isMobile && <TweaksPanel title="Tweaks">
         <TweakSection label="Theme"/>
         <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)}/>
         <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}/>
@@ -326,7 +342,7 @@ function App() {
         <TweakButton label="Place detail (Bar Buca)" onClick={() => { setScreen('home'); setActivePin('e1'); setShowPreview(true); setShowDetail(true); setShowLog(false); }}/>
         <TweakSection label="Auth"/>
         <TweakButton label="Sign out (show onboarding)" onClick={() => { resetSheets(); setShowLog(false); handleSignOut(); }}/>
-      </TweaksPanel>
+      </TweaksPanel>}
     </div>
   );
 }

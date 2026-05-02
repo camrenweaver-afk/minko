@@ -1382,7 +1382,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column' }}>
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
       {/* Top header band */}
-      <div style={{ paddingTop: 64, padding: '64px 20px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
         <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
         <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1 }}>
           <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={56}/>
@@ -1501,8 +1501,10 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
     <div style={{ position: 'absolute', inset: 0 }}>
       <MinkoGlobe dark={dark} accent={accent} pins={[]} activePinId={null} onPinClick={() => {}} fitToPins={false}/>
 
+      <SafeTopBar dark={dark}/>
+
       {/* Top bar */}
-      <div style={{ position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30 }}>
+      <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', left: 12, right: 12, zIndex: 30 }}>
         <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block' }} alt="minko"/>
           <span style={{ fontFamily: SERIF, fontSize: 14, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>· friends</span>
@@ -1510,7 +1512,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog }) {
       </div>
 
       {/* Banner — sits just below the top bar */}
-      <div style={{ position: 'absolute', top: 122, left: 12, right: 12, zIndex: 20 }}>
+      <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 72px)', left: 12, right: 12, zIndex: 20 }}>
         <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
           <div style={{ flex: 1 }}>

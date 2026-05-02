@@ -61,6 +61,19 @@ const Avatar = ({ name, color, size = 28, ring, src }) => (
   )
 );
 
+// Frosted backdrop that covers the status-bar zone (prevents raw map bleed-through)
+const SafeTopBar = ({ dark }) => (
+  <div style={{
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 28, pointerEvents: 'none',
+    height: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)',
+    backdropFilter: 'blur(18px) saturate(150%)',
+    WebkitBackdropFilter: 'blur(18px) saturate(150%)',
+    background: dark
+      ? 'linear-gradient(to bottom, rgba(14,16,24,0.82) 55%, transparent 100%)'
+      : 'linear-gradient(to bottom, rgba(207,225,238,0.88) 55%, transparent 100%)',
+  }}/>
+);
+
 // Floating glass surface used for top search & FAB
 const GlassSurface = ({ children, style, dark, radius = 999 }) => (
   <div style={{
@@ -159,7 +172,9 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
   return (
     <div style={{
-      position: 'absolute', top: 58, left: 12, right: 12, zIndex: 30,
+      position: 'absolute',
+      top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)',
+      left: 12, right: 12, zIndex: 30,
       display: 'flex', gap: 10, alignItems: 'center',
     }}>
       <GlassSurface dark={dark} radius={26} style={{ flex: 1, height: 52, padding: '0 10px 0 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -186,7 +201,7 @@ function CategoryLegend({ dark }) {
   ];
   const colors = window.MINKO_CATEGORY_COLORS || {};
   return (
-    <div style={{ position: 'absolute', top: 124, right: 12, zIndex: 25 }}>
+    <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 72px)', right: 12, zIndex: 25 }}>
       <GlassSurface dark={dark} radius={999} style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
         {cats.map(c => (
           <div key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -218,6 +233,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         onPinClick={onPin}
         fitToPins={pins.length > 0}
       />
+      <SafeTopBar dark={dark}/>
       <TopSearch dark={dark}/>
       <CategoryLegend dark={dark}/>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>

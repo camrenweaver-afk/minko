@@ -237,7 +237,7 @@ function MinkoGlobe({
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }}/>
       {scrollable && (
-        <div style={{ position: 'absolute', right: 14, bottom: 100, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10 }}>
+        <div style={{ position: 'absolute', right: 14, bottom: 'max(100px, calc(env(safe-area-inset-bottom) + 100px))', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10 }}>
           <button style={btnStyle(dark)} onClick={() => mapRef.current?.zoomIn({ duration: 250 })}>+</button>
           <button style={btnStyle(dark)} onClick={() => mapRef.current?.zoomOut({ duration: 250 })}>−</button>
         </div>

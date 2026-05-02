@@ -1526,8 +1526,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [searching, setSearching] = useState2(false);
   const [friendships, setFriendships] = useState2([]);
   const [loading, setLoading] = useState2(false);
-  const [pendingSent, setPendingSent] = useState2(new Set());
-  const [viewingProfile, setViewingProfile] = useState2(null);   // { profile, entries }
+  const [optimisticAdded, setOptimisticAdded] = useState2(new Set()); // ids added this session
+  const [viewingProfile, setViewingProfile] = useState2(null);
   const [profileLoading, setProfileLoading] = useState2(false);
   const searchTimer = useRef2(null);
 
@@ -1541,21 +1541,18 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
     try {
       const { data: fs } = await window.sb.from('friendships')
         .select('id, status, created_at, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('status', 'accepted');
       setFriendships(fs || []);
 
-      const acceptedIds = (fs || [])
-        .filter(f => f.status === 'accepted')
-        .map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id);
-
-      if (acceptedIds.length > 0) {
-        // Build a profile lookup map
+      const friendIds = (fs || []).map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id);
+      if (friendIds.length > 0) {
         const profileMap = {};
         (fs || []).forEach(f => {
           if (f.requester) profileMap[f.requester_id] = f.requester;
           if (f.addressee) profileMap[f.addressee_id] = f.addressee;
         });
-        const { data: entries } = await window.sb.from('entries').select('*').in('user_id', acceptedIds);
+        const { data: entries } = await window.sb.from('entries').select('*').in('user_id', friendIds);
         onFriendEntriesChange?.((entries || []).map(e => normalizeFriendEntry(e, profileMap[e.user_id])));
       } else {
         onFriendEntriesChange?.([]);
@@ -1585,30 +1582,23 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
     }, 300);
   };
 
-  const sendRequest = async (addresseeId) => {
+  const addFriend = async (profileId) => {
     if (!user?.id) return;
-    // Optimistic update — show "Sent" immediately
-    setPendingSent(prev => new Set([...prev, addresseeId]));
-    // Upsert so a previously-declined request gets re-opened instead of hitting unique_friendship constraint
+    // Optimistic: show "Added" immediately
+    setOptimisticAdded(prev => new Set([...prev, profileId]));
     const { error } = await window.sb.from('friendships').upsert(
-      { requester_id: user.id, addressee_id: addresseeId, status: 'pending' },
+      { requester_id: user.id, addressee_id: profileId, status: 'accepted' },
       { onConflict: 'requester_id,addressee_id', ignoreDuplicates: false }
     );
     if (error) {
-      console.error('sendRequest error:', error.message);
-      setPendingSent(prev => { const s = new Set(prev); s.delete(addresseeId); return s; });
+      console.error('addFriend error:', error.message, error.code);
+      setOptimisticAdded(prev => { const s = new Set(prev); s.delete(profileId); return s; });
     } else {
       loadFriendships();
     }
   };
 
-  const acceptRequest = async (id) => {
-    const { error } = await window.sb.from('friendships').update({ status: 'accepted' }).eq('id', id);
-    if (!error) loadFriendships();
-    else console.error('acceptRequest error:', error.message);
-  };
-
-  const removeFs = async (id) => {
+  const removeFriend = async (id) => {
     const fs = friendships.find(f => f.id === id);
     await window.sb.from('friendships').delete().eq('id', id);
     loadFriendships();
@@ -1626,22 +1616,20 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const getFs = (profileId) => friendships.find(f => f.requester_id === profileId || f.addressee_id === profileId);
   const getFriendProfile = (f) => f.requester_id === user?.id ? f.addressee : f.requester;
 
-  const incoming = friendships.filter(f => f.addressee_id === user?.id && f.status === 'pending');
-  const accepted = friendships.filter(f => f.status === 'accepted');
   const showSearch = searchQuery.trim().length >= 2;
-  const showPanel = showSearch || incoming.length > 0 || accepted.length > 0;
+  const showPanel = showSearch || friendships.length > 0;
   const pins = friendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
 
-  const FriendRow = ({ profile, right, onRowPress }) => (
+  const FriendRow = ({ profile, right, sub }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <button onClick={() => openProfile(profile)} style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, flex: 1, textAlign: 'left' }}>
         <Avatar src={profile?.avatar_url} name={profile?.display_name} color="#7a6ca3" size={40}/>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.display_name || 'User'}</div>
-          {onRowPress && <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 1 }}>{onRowPress}</div>}
+          {sub && <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 1 }}>{sub}</div>}
         </div>
       </button>
       {right}
@@ -1661,18 +1649,14 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           <input
             value={searchQuery}
             onChange={e => handleSearch(e.target.value)}
-            placeholder="Search friends by name…"
+            placeholder="Search people by name…"
             style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: SANS, fontSize: 14.5, color: labelText }}
           />
-          {searchQuery ? (
+          {searchQuery && (
             <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedText, display: 'flex', alignItems: 'center' }}>
               <MinkoIcon name="close" size={16} strokeWidth={2.2}/>
             </button>
-          ) : incoming.length > 0 ? (
-            <div style={{ width: 20, height: 20, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: 'white' }}>{incoming.length}</span>
-            </div>
-          ) : null}
+          )}
         </GlassSurface>
       </div>
 
@@ -1686,60 +1670,36 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
               ) : searchResults.length === 0 ? (
                 <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>No users found</div>
               ) : searchResults.map((p, i) => {
-                const fs = getFs(p.id);
-                const isSent = pendingSent.has(p.id) || (fs?.requester_id === user?.id && fs?.status === 'pending');
-                const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
-                const isAccepted = fs?.status === 'accepted';
+                const isFriend = optimisticAdded.has(p.id) || !!getFs(p.id);
                 return (
                   <div key={p.id} style={{ padding: '10px 16px', ...sep(i, searchResults.length) }}>
                     <FriendRow profile={p} right={
-                      isAccepted
-                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent, flexShrink: 0 }}>Friends</span>
-                        : isSent
-                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: mutedText, flexShrink: 0 }}>Sent</span>
-                        : isIncoming
-                        ? <_FriendPillBtn onClick={() => acceptRequest(fs.id)} label="Accept" bg={accent} color="white"/>
-                        : <_FriendPillBtn onClick={() => sendRequest(p.id)} label="Add" bg={dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)'} color={labelText}/>
+                      isFriend
+                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent, flexShrink: 0 }}>Added</span>
+                        : <_FriendPillBtn onClick={() => addFriend(p.id)} label="Add" bg={dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)'} color={labelText}/>
                     }/>
                   </div>
                 );
               })}
             </GlassSurface>
-          ) : <>
-            {incoming.length > 0 && (
-              <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-                <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friend Requests</div>
-                {incoming.map((f, i) => (
-                  <div key={f.id} style={{ padding: '10px 16px', ...sep(i, incoming.length) }}>
-                    <FriendRow profile={f.requester} onRowPress="Wants to be friends" right={
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <_FriendPillBtn onClick={() => removeFs(f.id)} label="Decline" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.07)'} color={mutedText}/>
-                        <_FriendPillBtn onClick={() => acceptRequest(f.id)} label="Accept" bg={accent} color="white"/>
-                      </div>
+          ) : friendships.length > 0 && (
+            <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
+              {friendships.map((f, i) => {
+                const p = getFriendProfile(f);
+                const count = friendEntries.filter(e => e.user_id === p?.id).length;
+                return (
+                  <div key={f.id} style={{ padding: '10px 16px', ...sep(i, friendships.length) }}>
+                    <FriendRow profile={p} sub={`${count} ${count === 1 ? 'place' : 'places'}`} right={
+                      <button onClick={() => removeFriend(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 6, color: mutedText, display: 'flex', alignItems: 'center' }}>
+                        <MinkoIcon name="close" size={15} strokeWidth={2}/>
+                      </button>
                     }/>
                   </div>
-                ))}
-              </GlassSurface>
-            )}
-            {accepted.length > 0 && (
-              <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-                <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
-                {accepted.map((f, i) => {
-                  const p = getFriendProfile(f);
-                  const count = friendEntries.filter(e => e.user_id === p?.id).length;
-                  return (
-                    <div key={f.id} style={{ padding: '10px 16px', ...sep(i, accepted.length) }}>
-                      <FriendRow profile={p} onRowPress={`${count} ${count === 1 ? 'place' : 'places'}`} right={
-                        <button onClick={() => removeFs(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 6, color: mutedText, display: 'flex', alignItems: 'center' }}>
-                          <MinkoIcon name="close" size={15} strokeWidth={2}/>
-                        </button>
-                      }/>
-                    </div>
-                  );
-                })}
-              </GlassSurface>
-            )}
-          </>}
+                );
+              })}
+            </GlassSurface>
+          )}
         </div>
       )}
 
@@ -1762,9 +1722,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
       {viewingProfile && (() => {
         const { profile, entries: pEntries } = viewingProfile;
         const fs = getFs(profile.id);
-        const isSent = pendingSent.has(profile.id) || (fs?.requester_id === user?.id && fs?.status === 'pending');
-        const isIncoming = fs?.addressee_id === user?.id && fs?.status === 'pending';
-        const isAccepted = fs?.status === 'accepted';
+        const isFriend = !!fs || optimisticAdded.has(profile.id);
         const pageBg = dark ? '#0e1018' : '#f4f1eb';
         const cardBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.72)';
         const SAFE_TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))';
@@ -1777,13 +1735,9 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
               <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelText, flex: 1 }}>Profile</span>
-              {isAccepted
-                ? <_FriendPillBtn onClick={() => { removeFs(fs.id); setViewingProfile(null); }} label="Remove Friend" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
-                : isSent
-                ? <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: mutedText, paddingRight: 4 }}>Request Sent</span>
-                : isIncoming
-                ? <_FriendPillBtn onClick={() => acceptRequest(fs.id)} label="Accept" bg={accent} color="white"/>
-                : <_FriendPillBtn onClick={() => sendRequest(profile.id)} label="Add Friend" bg={accent} color="white"/>}
+              {isFriend
+                ? <_FriendPillBtn onClick={() => { if (fs) removeFriend(fs.id); setViewingProfile(null); }} label="Remove" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
+                : <_FriendPillBtn onClick={() => addFriend(profile.id)} label="Add Friend" bg={accent} color="white"/>}
             </div>
 
             {/* Scrollable body */}

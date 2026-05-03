@@ -1477,17 +1477,17 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         </div>
 
         {/* Row 2: metrics */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           {[
             { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews' },
             { value: friendsCount, label: friendsCount === 1 ? 'friend' : 'friends' },
           ].map(({ value, label }) => (
-            <div key={label} style={{ flex: 1, padding: '12px 14px', borderRadius: 14,
-              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.75)',
+            <div key={label} style={{ width: 72, padding: '8px 10px', borderRadius: 10,
+              background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
               border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
-              display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 500, lineHeight: 1, color: labelC }}>{value}</div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: mutedC, letterSpacing: 0.2 }}>{label}</div>
+              display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
             </div>
           ))}
         </div>

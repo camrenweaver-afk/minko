@@ -1385,9 +1385,11 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
   const [showWishlist, setShowWishlist] = useState2(false);
   const [showSettings, setShowSettings] = useState2(false);
+  const [showReviews, setShowReviews] = useState2(false);
+  const [showFriendsList, setShowFriendsList] = useState2(false);
   const [avatarUploading, setAvatarUploading] = useState2(false);
   const [localAvatarUrl, setLocalAvatarUrl] = useState2(user?.user_metadata?.avatar_url || null);
-  const [friendsCount, setFriendsCount] = useState2(0);
+  const [friendsList, setFriendsList] = useState2([]);
   const avatarFileRef = useRef2(null);
 
   // Stay in sync if the user prop updates from outside (auth state change)
@@ -1395,14 +1397,14 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     setLocalAvatarUrl(user?.user_metadata?.avatar_url || null);
   }, [user?.user_metadata?.avatar_url]);
 
-  // Fetch friend count
+  // Fetch friends list
   useEffect2(() => {
     if (!user?.id) return;
     window.sb.from('friendships')
-      .select('id', { count: 'exact', head: true })
+      .select('id, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
       .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
       .eq('status', 'accepted')
-      .then(({ count }) => setFriendsCount(count || 0));
+      .then(({ data }) => setFriendsList(data || []));
   }, [user?.id]);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
@@ -1459,23 +1461,23 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           </div>
         </button>
 
-        {/* Name — no truncation needed, gear is gone from right side */}
-        <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1 }}>
+        {/* Name — takes all remaining space, boxes stay pinned right */}
+        <div style={{ flex: 1, fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {displayName}
         </div>
 
-        {/* Metric boxes */}
+        {/* Metric boxes — pinned right, tappable */}
         {[
-          { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews' },
-          { value: friendsCount, label: friendsCount === 1 ? 'friend' : 'friends' },
-        ].map(({ value, label }) => (
-          <div key={label} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8,
+          { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews', onClick: () => setShowReviews(true) },
+          { value: friendsList.length, label: friendsList.length === 1 ? 'friend' : 'friends', onClick: () => setShowFriendsList(true) },
+        ].map(({ value, label, onClick }) => (
+          <button key={label} onClick={onClick} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8, border: 0, cursor: 'pointer', textAlign: 'left',
             background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
-            border: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
+            outline: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
             display: 'flex', flexDirection: 'column', gap: 1 }}>
             <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
             <div style={{ fontFamily: SANS, fontSize: 10, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -1556,6 +1558,74 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         refreshKey={wishlistRefreshKey}
         onItemAdded={onWishlistItemAdded}
       />
+
+      {/* Reviews list overlay */}
+      {showReviews && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <button onClick={() => setShowReviews(false)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Reviews</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>{entries.length} total</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
+            {entries.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No reviews yet</div>
+            ) : [...entries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).map((e, i, arr) => (
+              <button key={e.id} onClick={() => { setShowReviews(false); onPin(e.id); }} style={{
+                width: '100%', display: 'flex', gap: 12, padding: '12px 0', textAlign: 'left', border: 0, background: 'none', cursor: 'pointer',
+                borderBottom: i < arr.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none',
+              }}>
+                {e.photos?.[0] ? (
+                  <img src={e.photos[0]} style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} alt=""/>
+                ) : (
+                  <div style={{ width: 60, height: 60, borderRadius: 12, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,20,30,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MinkoIcon name="pin" size={22} color={mutedC} strokeWidth={1.4}/>
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || 'Unnamed place'}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {e.rating > 0 && <Stars n={e.rating} size={12} color="#c89e54"/>}
+                    {e.date && <span style={{ fontFamily: SANS, fontSize: 11, color: mutedC }}>{e.date}</span>}
+                  </div>
+                  {e.note && <div style={{ fontFamily: SERIF, fontSize: 13, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{e.note}</div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Friends list overlay */}
+      {showFriendsList && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <button onClick={() => setShowFriendsList(false)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>Friends</span>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>{friendsList.length} total</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
+            {friendsList.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No friends yet</div>
+            ) : friendsList.map((f, i) => {
+              const p = f.requester_id === user?.id ? f.addressee : f.requester;
+              if (!p) return null;
+              return (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
+                  borderBottom: i < friendsList.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
+                  <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={46}/>
+                  <div style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 600, color: labelC }}>{p.display_name || 'User'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Settings sheet */}
       {showSettings && (

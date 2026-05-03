@@ -1441,56 +1441,54 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column' }}>
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
 
-      {/* Top header */}
-      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20 }}>
-        {/* Row 1: avatar + name + settings button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
-          <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1, flexShrink: 0 }}>
-            <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={62}/>
-            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
-              background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <MinkoIcon name="camera" size={10} color="white" strokeWidth={2}/>
-            </div>
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayName}
-            </div>
-            <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedC, marginTop: 3 }}>
-              {joinedDate ? `Joined ${joinedDate}` : 'Welcome to Minko'}
-            </div>
+      {/* Top header — single row: avatar | name+date+metrics | gear */}
+      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
+        <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1, flexShrink: 0 }}>
+          <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={56}/>
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
+            background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
+            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MinkoIcon name="camera" size={10} color="white" strokeWidth={2}/>
           </div>
-          {/* Settings gear */}
-          <button onClick={() => setShowSettings(true)} style={{
-            width: 36, height: 36, borderRadius: 10, border: 0, cursor: 'pointer', flexShrink: 0,
-            background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: mutedC,
-          }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
+        </button>
+
+        {/* Middle: name, date, metric boxes */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {displayName}
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC }}>
+            {joinedDate ? `Joined ${joinedDate}` : 'Welcome to Minko'}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+            {[
+              { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews' },
+              { value: friendsCount, label: friendsCount === 1 ? 'friend' : 'friends' },
+            ].map(({ value, label }) => (
+              <div key={label} style={{ padding: '5px 9px', borderRadius: 8,
+                background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
+                border: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
+                display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
+                <div style={{ fontFamily: SANS, fontSize: 10, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Row 2: metrics */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-          {[
-            { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews' },
-            { value: friendsCount, label: friendsCount === 1 ? 'friend' : 'friends' },
-          ].map(({ value, label }) => (
-            <div key={label} style={{ width: 72, padding: '8px 10px', borderRadius: 10,
-              background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
-              border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
-              display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
-            </div>
-          ))}
-        </div>
+        {/* Settings gear */}
+        <button onClick={() => setShowSettings(true)} style={{
+          width: 34, height: 34, borderRadius: 9, border: 0, cursor: 'pointer', flexShrink: 0,
+          background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: mutedC,
+          alignSelf: 'flex-start', marginTop: 4,
+        }}>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </div>
 
       {/* Mini globe — visual anchor */}

@@ -1441,21 +1441,26 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column' }}>
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
 
-      {/* Top header — [avatar] [name] [reviews] [friends] [gear] all in one line */}
+      {/* Top header — [avatar+gear badge] [name] [reviews] [friends] all in one line */}
       <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
         <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
-        {/* Avatar */}
-        <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1, flexShrink: 0 }}>
+
+        {/* Avatar — gear badge replaces camera badge, opens settings */}
+        <button onClick={() => setShowSettings(true)} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1, flexShrink: 0 }}>
           <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={44}/>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: '50%',
-            background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
+            background: dark ? 'rgba(40,42,58,0.95)' : 'rgba(240,238,232,0.95)',
+            border: '1.5px solid ' + (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.1)'),
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MinkoIcon name="camera" size={8} color="white" strokeWidth={2}/>
+            <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke={mutedC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
           </div>
         </button>
 
-        {/* Name */}
-        <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+        {/* Name — no truncation needed, gear is gone from right side */}
+        <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1 }}>
           {displayName}
         </div>
 
@@ -1472,19 +1477,6 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
             <div style={{ fontFamily: SANS, fontSize: 10, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
           </div>
         ))}
-
-        {/* Spacer + settings gear pushed to far right */}
-        <div style={{ flex: 1 }}/>
-        <button onClick={() => setShowSettings(true)} style={{
-          width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
-          background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', color: mutedC,
-        }}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
       </div>
 
       {/* Mini globe — visual anchor */}
@@ -1581,8 +1573,17 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
                 <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
               </button>
             </div>
-            {/* Sign out row */}
-            <div style={{ padding: '0 16px' }}>
+            {/* Settings rows */}
+            <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Change photo */}
+              <button onClick={() => { setShowSettings(false); avatarFileRef.current?.click(); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
+                  background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,20,30,0.04)' }}>
+                <MinkoIcon name="camera" size={20} color={labelC} strokeWidth={1.7}/>
+                <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: labelC }}>Change profile photo</span>
+                {avatarUploading && <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC, marginLeft: 'auto' }}>Uploading…</span>}
+              </button>
+              {/* Sign out */}
               <button onClick={() => { setShowSettings(false); onSignOut?.(); }}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
                   background: dark ? 'rgba(229,83,75,0.1)' : 'rgba(229,83,75,0.07)' }}>

@@ -1384,14 +1384,26 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 
 function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
   const [showWishlist, setShowWishlist] = useState2(false);
+  const [showSettings, setShowSettings] = useState2(false);
   const [avatarUploading, setAvatarUploading] = useState2(false);
   const [localAvatarUrl, setLocalAvatarUrl] = useState2(user?.user_metadata?.avatar_url || null);
+  const [friendsCount, setFriendsCount] = useState2(0);
   const avatarFileRef = useRef2(null);
 
   // Stay in sync if the user prop updates from outside (auth state change)
   useEffect2(() => {
     setLocalAvatarUrl(user?.user_metadata?.avatar_url || null);
   }, [user?.user_metadata?.avatar_url]);
+
+  // Fetch friend count
+  useEffect2(() => {
+    if (!user?.id) return;
+    window.sb.from('friendships')
+      .select('id', { count: 'exact', head: true })
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .eq('status', 'accepted')
+      .then(({ count }) => setFriendsCount(count || 0));
+  }, [user?.id]);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
 
@@ -1405,7 +1417,6 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       const { error: uploadError } = await window.sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = window.sb.storage.from('avatars').getPublicUrl(path);
-      // Update UI immediately — don't wait for auth state change to propagate
       setLocalAvatarUrl(publicUrl);
       const { error: updateError } = await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
       if (updateError) console.error('Avatar metadata update error', updateError);
@@ -1413,50 +1424,72 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     setAvatarUploading(false);
     e.target.value = '';
   };
+
   const joinedDate = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : null;
-  const cities = entries.length > 0
-    ? new Set(entries.map(e => e.location?.split(',')[0].trim()).filter(Boolean)).size
-    : 0;
 
   const avgRating = entries.length > 0
     ? (entries.reduce((s, e) => s + (e.rating || 0), 0) / entries.length).toFixed(1)
     : '—';
   const topRated = [...entries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
+  const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
+  const labelC = dark ? '#f5f1e8' : '#1a1a2e';
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column' }}>
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
-      {/* Top header band */}
-      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
-        <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1 }}>
-          <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={56}/>
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
-            background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
-            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MinkoIcon name="camera" size={10} color="white" strokeWidth={2}/>
-          </div>
-        </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, lineHeight: 1.1, flex: 1 }}>
+
+      {/* Top header */}
+      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20 }}>
+        {/* Row 1: avatar + name + settings button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
+          <button onClick={() => avatarFileRef.current?.click()} style={{ border: 0, padding: 0, background: 'none', cursor: 'pointer', borderRadius: '50%', position: 'relative', opacity: avatarUploading ? 0.6 : 1, flexShrink: 0 }}>
+            <Avatar src={localAvatarUrl} name={displayName} color="#7a6ca3" size={62}/>
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: '50%',
+              background: accent, border: '2px solid ' + (dark ? '#13141b' : '#faf8f3'),
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MinkoIcon name="camera" size={10} color="white" strokeWidth={2}/>
+            </div>
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}
             </div>
-            {onSignOut && (
-              <button onClick={onSignOut} style={{
-                border: 0, cursor: 'pointer', padding: '3px 10px', borderRadius: 20,
-                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)',
-                fontFamily: SANS, fontSize: 12, fontWeight: 600,
-                color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.6)',
-              }}>Sign out</button>
-            )}
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedC, marginTop: 3 }}>
+              {joinedDate ? `Joined ${joinedDate}` : 'Welcome to Minko'}
+            </div>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginTop: 2 }}>
-            {joinedDate ? `Joined ${joinedDate}` : 'Welcome to Minko'}{cities > 0 ? ` · ${cities} ${cities === 1 ? 'city' : 'cities'}` : ''}
-          </div>
+          {/* Settings gear */}
+          <button onClick={() => setShowSettings(true)} style={{
+            width: 36, height: 36, borderRadius: 10, border: 0, cursor: 'pointer', flexShrink: 0,
+            background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: mutedC,
+          }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Row 2: metrics */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
+          {[
+            { value: entries.length, label: entries.length === 1 ? 'review' : 'reviews' },
+            { value: friendsCount, label: friendsCount === 1 ? 'friend' : 'friends' },
+          ].map(({ value, label }) => (
+            <div key={label} style={{ flex: 1, padding: '12px 14px', borderRadius: 14,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.75)',
+              border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
+              display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 500, lineHeight: 1, color: labelC }}>{value}</div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: mutedC, letterSpacing: 0.2 }}>{label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1537,6 +1570,37 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         refreshKey={wishlistRefreshKey}
         onItemAdded={onWishlistItemAdded}
       />
+
+      {/* Settings sheet */}
+      {showSettings && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'flex', flexDirection: 'column' }}>
+          <div onClick={() => setShowSettings(false)} style={{ flex: 1, background: 'rgba(0,0,0,0.3)' }}/>
+          <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', paddingBottom: 'max(32px, calc(env(safe-area-inset-bottom) + 16px))' }}>
+            {/* Handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+            </div>
+            {/* Title */}
+            <div style={{ padding: '8px 22px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: labelC, fontStyle: 'italic' }}>Settings</span>
+              <button onClick={() => setShowSettings(false)} style={{ border: 0, background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mutedC }}>
+                <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
+              </button>
+            </div>
+            {/* Sign out row */}
+            <div style={{ padding: '0 16px' }}>
+              <button onClick={() => { setShowSettings(false); onSignOut?.(); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
+                  background: dark ? 'rgba(229,83,75,0.1)' : 'rgba(229,83,75,0.07)' }}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#e5534b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: '#e5534b' }}>Sign out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

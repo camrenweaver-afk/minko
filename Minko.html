@@ -42,7 +42,7 @@
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=10"></script>
 <script type="text/babel" src="screens.jsx?v=11"></script>
-<script type="text/babel" src="flows.jsx?v=29"></script>
+<script type="text/babel" src="flows.jsx?v=34"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -87,6 +87,7 @@ function App() {
   const [photoKey, setPhotoKey] = useState(0);
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [friendEntries, setFriendEntries] = useState([]);
+  const [friendsRefreshKey, setFriendsRefreshKey] = useState(0);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -216,6 +217,7 @@ function App() {
               user={user}
               friendEntries={friendEntries}
               onFriendEntriesChange={setFriendEntries}
+              onFriendAdded={() => setFriendsRefreshKey(k => k + 1)}
             />
           )}
 
@@ -231,6 +233,7 @@ function App() {
               wishlistCount={wishlistCount}
               wishlistRefreshKey={wishlistRefreshKey}
               onWishlistItemAdded={refreshWishlistCount}
+              friendsRefreshKey={friendsRefreshKey}
             />
           )}
 

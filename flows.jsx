@@ -769,29 +769,15 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
   const [note, setNote] = useState2('');
   const [links, setLinks] = useState2([]);
   const [linkInput, setLinkInput] = useState2('');
-  const [photos, setPhotos] = useState2([]);
-  const [uploading, setUploading] = useState2(false);
+  // pendingFiles holds {file, preview} objects — photos are NOT uploaded until submit
+  // so we always have a real entry ID to use as the storage path
+  const [pendingFiles, setPendingFiles] = useState2([]);
+  const [submitting, setSubmitting] = useState2(false);
   const [query, setQuery] = useState2('');
   const [results, setResults] = useState2([]);
   const [loading, setLoading] = useState2(false);
   const [sessionToken] = useState2(() => 'minko-' + Math.random().toString(36).slice(2));
-  // Stable temp folder ID used as the storage path before the entry has a real DB id
-  const tempFolderRef = useRef2('tmp-' + Math.random().toString(36).slice(2));
   const photoInputRef = useRef2(null);
-
-  const handlePhotoFiles = async (files) => {
-    if (!files?.length) return;
-    setUploading(true);
-    try {
-      const { data: { user } } = await window.sb.auth.getUser();
-      if (!user) return;
-      const uploads = await Promise.all(Array.from(files).map(f =>
-        uploadPhoto(user.id, 'entries', tempFolderRef.current, f)
-      ));
-      setPhotos(prev => [...prev, ...uploads]);
-    } catch (e) { console.error('photo upload error', e); }
-    setUploading(false);
-  };
 
   useEffect2(() => {
     if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
@@ -987,10 +973,10 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 10 }}>Photos</div>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-              {photos.map((url, i) => (
-                <div key={url} style={{ position: 'relative', flexShrink: 0 }}>
-                  <img src={url} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', display: 'block' }} alt=""/>
-                  <button onClick={() => setPhotos(prev => prev.filter((_, j) => j !== i))}
+              {pendingFiles.map(({ preview }, i) => (
+                <div key={preview} style={{ position: 'relative', flexShrink: 0 }}>
+                  <img src={preview} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', display: 'block' }} alt=""/>
+                  <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
                     style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 0, cursor: 'pointer',
                       background: 'rgba(0,0,0,0.55)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                     <MinkoIcon name="close" size={11} strokeWidth={2.5} color="white"/>
@@ -998,16 +984,18 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
                 </div>
               ))}
               <button onClick={() => photoInputRef.current?.click()}
-                disabled={uploading}
+                disabled={submitting}
                 style={{ width: 72, height: 72, borderRadius: 12, border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.18)'}`,
-                  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)', cursor: uploading ? 'default' : 'pointer',
+                  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)', cursor: submitting ? 'default' : 'pointer',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
-                {uploading
-                  ? <span style={{ fontFamily: SANS, fontSize: 10, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>…</span>
-                  : <MinkoIcon name="camera" size={22} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>}
+                <MinkoIcon name="camera" size={22} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>
               </button>
               <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
-                onChange={e => { handlePhotoFiles(e.target.files); e.target.value = ''; }}/>
+                onChange={e => {
+                  const snap = Array.from(e.target.files || []);
+                  e.target.value = '';
+                  setPendingFiles(prev => [...prev, ...snap.map(f => ({ file: f, preview: URL.createObjectURL(f) }))]);
+                }}/>
             </div>
           </div>
 
@@ -1075,36 +1063,52 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           }}>Back</button>
         )}
         <button
-          disabled={(step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || uploading))}
+          disabled={(step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || submitting))}
           onClick={async () => {
             if (step < 3) { setStep(step + 1); return; }
-            if (window.sb) {
+            if (!window.sb) { onConfirm(); return; }
+            setSubmitting(true);
+            try {
               const { data: { user } } = await window.sb.auth.getUser();
-              if (user) {
-                await window.sb.from('entries').insert({
-                  user_id: user.id,
-                  place: place.name,
-                  category,
-                  rating,
-                  note: note || null,
-                  location: place.sub || null,
-                  lon: place.lon || null,
-                  lat: place.lat || null,
-                  date_visited: new Date().toISOString().split('T')[0],
-                  links: links.length ? links : [],
-                  photos: photos.length ? photos : [],
-                });
+              if (!user) { onConfirm(); return; }
+
+              // 1. Insert entry (no photos yet — we need the real ID first)
+              const { data: inserted, error: insertErr } = await window.sb.from('entries').insert({
+                user_id: user.id,
+                place: place.name,
+                category,
+                rating,
+                note: note || null,
+                location: place.sub || null,
+                lon: place.lon || null,
+                lat: place.lat || null,
+                date_visited: new Date().toISOString().split('T')[0],
+                links: links.length ? links : [],
+                photos: [],
+              }).select('id').single();
+
+              if (insertErr) { console.error('insert error', insertErr); onConfirm(); return; }
+
+              // 2. Upload photos using the real entry ID, then patch the row
+              if (pendingFiles.length > 0) {
+                const urls = await Promise.all(
+                  pendingFiles.map(({ file }) => uploadPhoto(user.id, 'entries', inserted.id, file))
+                );
+                await window.sb.from('entries').update({ photos: urls }).eq('id', inserted.id);
               }
+            } catch (err) {
+              console.error('submit error', err);
             }
+            setSubmitting(false);
             onConfirm();
           }}
           style={{
             flex: 1, height: 50, borderRadius: 12, border: 0, cursor: 'pointer',
-            background: ((step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || uploading)))
+            background: ((step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || submitting)))
               ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
             color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
           }}>
-          {step < 3 ? 'Continue' : uploading ? 'Uploading…' : 'Drop pin'}
+          {step < 3 ? 'Continue' : submitting ? 'Saving…' : 'Drop pin'}
         </button>
       </div>
     </div>
@@ -1382,11 +1386,180 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded }) {
+// ─────────────────────────────────────────────────────────────
+// SHARED FRIEND PROFILE PAGE
+// Used from both ProfileScreen (friends list) and FriendsScreen (search/friend rows)
+// ─────────────────────────────────────────────────────────────
+function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFriendshipChanged, zIndex = 80 }) {
+  const [pEntries, setPEntries] = useState2([]);
+  const [friendsCount, setFriendsCount] = useState2(null);
+  const [loading, setLoading] = useState2(true);
+  const [friendshipId, setFriendshipId] = useState2(null);
+  const [optimistic, setOptimistic] = useState2(false);
+
+  const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
+  const labelC = dark ? '#f5f1e8' : '#1a1a2e';
+
+  useEffect2(() => {
+    if (!profile?.id) return;
+    setLoading(true);
+    setPEntries([]);
+    setFriendsCount(null);
+    setFriendshipId(null);
+    setOptimistic(false);
+    Promise.all([
+      window.sb.from('entries').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      window.sb.from('friendships').select('id', { count: 'exact', head: true })
+        .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`)
+        .eq('status', 'accepted'),
+      currentUserId
+        ? window.sb.from('friendships').select('id, requester_id, addressee_id').eq('status', 'accepted')
+            .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
+        : Promise.resolve({ data: [] }),
+    ]).then(([entriesRes, fcRes, fsRes]) => {
+      setPEntries((entriesRes.data || []).map(e => ({
+        ...e,
+        date: e.date_visited
+          ? new Date(e.date_visited + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+          : '',
+        photos: Array.isArray(e.photos) ? e.photos : [],
+        links: Array.isArray(e.links) ? e.links : [],
+      })));
+      setFriendsCount(fcRes.count || 0);
+      const fs = (fsRes.data || []).find(f => f.requester_id === profile.id || f.addressee_id === profile.id);
+      setFriendshipId(fs?.id || null);
+      setLoading(false);
+    });
+  }, [profile?.id]);
+
+  const isFriend = optimistic || friendshipId !== null;
+
+  const handleAdd = async () => {
+    if (!currentUserId) return;
+    setOptimistic(true);
+    const { data, error } = await window.sb.from('friendships').upsert(
+      { requester_id: currentUserId, addressee_id: profile.id, status: 'accepted' },
+      { onConflict: 'requester_id,addressee_id', ignoreDuplicates: false }
+    ).select('id').single();
+    if (error) { console.error('addFriend', error); setOptimistic(false); }
+    else { setFriendshipId(data?.id || null); onFriendshipChanged?.(); }
+  };
+
+  const handleRemove = async () => {
+    if (!friendshipId) return;
+    await window.sb.from('friendships').delete().eq('id', friendshipId);
+    setFriendshipId(null);
+    setOptimistic(false);
+    onFriendshipChanged?.();
+    onBack();
+  };
+
+  const pAvgRating = pEntries.length > 0
+    ? (pEntries.reduce((s, e) => s + (e.rating || 0), 0) / pEntries.length).toFixed(1)
+    : '—';
+  const pTopRated = [...pEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
+
+        {/* Header row — mirrors ProfileScreen exactly */}
+        <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={onBack} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, position: 'relative', flexShrink: 0 }}>
+            <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={44}/>
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: '50%',
+              background: dark ? 'rgba(40,42,58,0.95)' : 'rgba(240,238,232,0.95)',
+              border: '1.5px solid ' + (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.1)'),
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke={mutedC} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+          </button>
+
+          <div style={{ flex: 1, fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile.display_name || 'User'}
+          </div>
+
+          {[
+            { value: loading ? '…' : pEntries.length, label: pEntries.length === 1 ? 'review' : 'reviews' },
+            { value: loading ? '…' : (friendsCount ?? '…'), label: friendsCount === 1 ? 'friend' : 'friends' },
+          ].map(({ value, label }) => (
+            <div key={label} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8,
+              background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
+              outline: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
+              display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
+              <div style={{ fontFamily: SANS, fontSize: 10, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
+            </div>
+          ))}
+
+          {currentUserId && (isFriend
+            ? <_FriendPillBtn onClick={handleRemove} label="Friends" bg={dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)'} color={mutedC}/>
+            : <_FriendPillBtn onClick={handleAdd} label="Add" bg={accent} color="white"/>)}
+        </div>
+
+        {/* Mini globe */}
+        <div style={{ position: 'relative', height: 220, margin: '8px 16px', borderRadius: 18, overflow: 'hidden' }}>
+          <MinkoGlobe dark={dark} accent={accent} scrollable={false}
+            pins={pEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
+          />
+        </div>
+
+        {/* Avg rating */}
+        <div style={{ padding: '10px 16px 4px' }}>
+          <div style={{ padding: '14px 16px', borderRadius: 16,
+            background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.8)',
+            border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)',
+            display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 32, fontWeight: 500, lineHeight: 1, color: '#c89e54' }}>{pAvgRating}</div>
+            {pEntries.length > 0 && <Stars n={Math.round(parseFloat(pAvgRating))} size={16}/>}
+            <div style={{ fontFamily: SANS, fontSize: 11, color: mutedC, letterSpacing: 0.2 }}>avg rating · {pEntries.length} {pEntries.length === 1 ? 'place' : 'places'}</div>
+          </div>
+        </div>
+
+        {/* Top rated */}
+        <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, fontStyle: 'italic' }}>Top rated</div>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC }}>{pEntries.length > 0 ? `${pEntries.length} total` : ''}</span>
+        </div>
+        <div style={{ padding: '0 16px 160px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>Loading…</div>
+          ) : pEntries.length === 0 ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No places logged yet</div>
+          ) : pTopRated.slice(0, 5).map(e => (
+            <div key={e.id} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+              border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)' }}>
+              {e.photos?.[0] ? (
+                <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
+              ) : (
+                <div style={{ width: 60, height: 60, borderRadius: 10, flexShrink: 0,
+                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <MinkoIcon name={e.category} size={22} color={accent} strokeWidth={1.4}/>
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: labelC, letterSpacing: -0.2, lineHeight: 1.15,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || 'Unnamed place'}</div>
+                <div style={{ margin: '5px 0 3px' }}><Stars n={e.rating} size={28}/></div>
+                <div style={{ fontFamily: SANS, fontSize: 11.5, color: mutedC,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location} · {e.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded, friendsRefreshKey = 0 }) {
   const [showWishlist, setShowWishlist] = useState2(false);
   const [showSettings, setShowSettings] = useState2(false);
   const [showReviews, setShowReviews] = useState2(false);
   const [showFriendsList, setShowFriendsList] = useState2(false);
+  const [viewingFriend, setViewingFriend] = useState2(null);
   const [avatarUploading, setAvatarUploading] = useState2(false);
   const [localAvatarUrl, setLocalAvatarUrl] = useState2(user?.user_metadata?.avatar_url || null);
   const [friendsList, setFriendsList] = useState2([]);
@@ -1397,7 +1570,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     setLocalAvatarUrl(user?.user_metadata?.avatar_url || null);
   }, [user?.user_metadata?.avatar_url]);
 
-  // Fetch friends list
+  // Fetch friends list — re-runs when friendsRefreshKey changes (e.g. after adding from Friends tab)
   useEffect2(() => {
     if (!user?.id) return;
     window.sb.from('friendships')
@@ -1405,7 +1578,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
       .eq('status', 'accepted')
       .then(({ data }) => setFriendsList(data || []));
-  }, [user?.id]);
+  }, [user?.id, friendsRefreshKey]);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'You';
 
@@ -1616,11 +1789,13 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               const p = f.requester_id === user?.id ? f.addressee : f.requester;
               if (!p) return null;
               return (
-                <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
-                  borderBottom: i < friendsList.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
+                <button key={f.id} onClick={() => setViewingFriend(p)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', border: 0, background: 'none', cursor: 'pointer', textAlign: 'left',
+                    borderBottom: i < friendsList.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
                   <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={46}/>
                   <div style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 600, color: labelC }}>{p.display_name || 'User'}</div>
-                </div>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={mutedC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+                </button>
               );
             })}
           </div>
@@ -1666,6 +1841,28 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           </div>
         </div>
       )}
+
+      {/* Friend profile page — slides over everything */}
+      {viewingFriend && (
+        <FriendProfilePage
+          key={viewingFriend.id}
+          profile={viewingFriend}
+          dark={dark} accent={accent}
+          currentUserId={user?.id}
+          onBack={() => setViewingFriend(null)}
+          onFriendshipChanged={() => {
+            // Refresh friends list after add/remove
+            if (user?.id) {
+              window.sb.from('friendships')
+                .select('id, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
+                .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+                .eq('status', 'accepted')
+                .then(({ data }) => setFriendsList(data || []));
+            }
+          }}
+          zIndex={90}
+        />
+      )}
     </div>
   );
 }
@@ -1697,15 +1894,14 @@ function _FriendPillBtn({ onClick, label, bg, color }) {
   );
 }
 
-function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user, friendEntries = [], onFriendEntriesChange }) {
+function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user, friendEntries = [], onFriendEntriesChange, onFriendAdded }) {
   const [searchQuery, setSearchQuery] = useState2('');
   const [searchResults, setSearchResults] = useState2([]);
   const [searching, setSearching] = useState2(false);
   const [friendships, setFriendships] = useState2([]);
   const [loading, setLoading] = useState2(false);
   const [optimisticAdded, setOptimisticAdded] = useState2(new Set()); // ids added this session
-  const [viewingProfile, setViewingProfile] = useState2(null);
-  const [profileLoading, setProfileLoading] = useState2(false);
+  const [viewingProfile, setViewingProfile] = useState2(null); // just the profile object now
   const searchTimer = useRef2(null);
 
   const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
@@ -1772,6 +1968,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
       setOptimisticAdded(prev => { const s = new Set(prev); s.delete(profileId); return s; });
     } else {
       loadFriendships();
+      onFriendAdded?.();
     }
   };
 
@@ -1782,13 +1979,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
     if (fs) onFriendEntriesChange?.(friendEntries.filter(e => e.user_id !== fs.requester_id && e.user_id !== fs.addressee_id));
   };
 
-  const openProfile = async (profile) => {
-    setViewingProfile({ profile, entries: [] });
-    setProfileLoading(true);
-    const { data } = await window.sb.from('entries').select('*').eq('user_id', profile.id).order('created_at', { ascending: false });
-    setViewingProfile({ profile, entries: (data || []).map(e => normalizeFriendEntry(e, profile)) });
-    setProfileLoading(false);
-  };
+  const openProfile = (profile) => setViewingProfile(profile);
 
   const getFs = (profileId) => friendships.find(f => f.requester_id === profileId || f.addressee_id === profileId);
   const getFriendProfile = (f) => f.requester_id === user?.id ? f.addressee : f.requester;
@@ -1896,70 +2087,17 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
 
       {/* Friend full-page profile view */}
-      {viewingProfile && (() => {
-        const { profile, entries: pEntries } = viewingProfile;
-        const fs = getFs(profile.id);
-        const isFriend = !!fs || optimisticAdded.has(profile.id);
-        const pageBg = dark ? '#0e1018' : '#f4f1eb';
-        const cardBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.72)';
-        const SAFE_TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))';
-        const SAFE_BOT = 'max(24px, calc(env(safe-area-inset-bottom) + 12px))';
-        return (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: pageBg, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
-            {/* Top bar */}
-            <div style={{ paddingTop: SAFE_TOP, paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <button onClick={() => setViewingProfile(null)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', display: 'flex', alignItems: 'center', color: accent }}>
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelText, flex: 1 }}>Profile</span>
-              {isFriend
-                ? <_FriendPillBtn onClick={() => { if (fs) removeFriend(fs.id); setViewingProfile(null); }} label="Remove" bg={dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,20,30,0.08)'} color={mutedText}/>
-                : <_FriendPillBtn onClick={() => addFriend(profile.id)} label="Add Friend" bg={accent} color="white"/>}
-            </div>
-
-            {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: SAFE_BOT }}>
-              {/* Hero card */}
-              <div style={{ margin: '8px 16px 20px', background: cardBg, borderRadius: 20, padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
-                <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={80}/>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 500, color: labelText, letterSpacing: -0.4 }}>{profile.display_name || 'User'}</div>
-                  <div style={{ fontFamily: SANS, fontSize: 13, color: mutedText, marginTop: 4 }}>
-                    {profileLoading ? 'Loading…' : `${pEntries.length} ${pEntries.length === 1 ? 'place logged' : 'places logged'}`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Places section */}
-              <div style={{ padding: '0 16px' }}>
-                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', color: mutedText, marginBottom: 10 }}>Places</div>
-                {profileLoading ? (
-                  <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>Loading…</div>
-                ) : pEntries.length === 0 ? (
-                  <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: mutedText }}>No places logged yet</div>
-                ) : pEntries.map((e, i) => (
-                  <div key={e.id} style={{ display: 'flex', gap: 12, padding: '11px 0', borderBottom: i < pEntries.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
-                    {e.photos?.[0] ? (
-                      <div style={{ width: 56, height: 56, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={e.photos[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt=""/>
-                      </div>
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,20,30,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <MinkoIcon name="pin" size={22} color={mutedText} strokeWidth={1.4}/>
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || e.name || 'Unnamed place'}</div>
-                      <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
-                      {e.rating > 0 && <div style={{ marginTop: 3 }}><Stars n={e.rating} size={11} color="#c89e54"/></div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {viewingProfile && (
+        <FriendProfilePage
+          key={viewingProfile.id}
+          profile={viewingProfile}
+          dark={dark} accent={accent}
+          currentUserId={user?.id}
+          onBack={() => setViewingProfile(null)}
+          onFriendshipChanged={loadFriendships}
+          zIndex={60}
+        />
+      )}
     </div>
   );
 }

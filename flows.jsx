@@ -1527,7 +1527,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
             <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>Loading…</div>
           ) : pEntries.length === 0 ? (
             <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No places logged yet</div>
-          ) : pTopRated.slice(0, 5).map(e => (
+          ) : pTopRated.map(e => (
             <button key={e.id} onClick={() => setViewingEntry(e)} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14,
               background: dark ? 'rgba(255,255,255,0.04)' : 'white',
               border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',

@@ -1552,6 +1552,238 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// EDIT PROFILE SHEET
+// ─────────────────────────────────────────────────────────────
+function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
+  const [firstName, setFirstName] = useState2('');
+  const [lastName, setLastName] = useState2('');
+  const [email, setEmail] = useState2('');
+  const [phone, setPhone] = useState2('');
+  const [homeCities, setHomeCities] = useState2([]);
+  const [cityInput, setCityInput] = useState2('');
+  const [localAvatar, setLocalAvatar] = useState2(user?.user_metadata?.avatar_url || null);
+  const [avatarUploading, setAvatarUploading] = useState2(false);
+  const [saving, setSaving] = useState2(false);
+  const [emailNote, setEmailNote] = useState2('');
+  const avatarRef = useRef2(null);
+
+  const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
+  const labelC = dark ? '#f5f1e8' : '#1a1a2e';
+  const fieldBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,20,30,0.05)';
+  const fieldStyle = {
+    width: '100%', boxSizing: 'border-box', height: 46, padding: '0 14px',
+    borderRadius: 12, border: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,20,30,0.09)',
+    background: fieldBg, outline: 'none',
+    fontFamily: SANS, fontSize: 15, color: labelC,
+  };
+
+  useEffect2(() => {
+    if (!user?.id) return;
+    window.sb.from('profiles')
+      .select('first_name, last_name, phone, home_cities')
+      .eq('id', user.id).single()
+      .then(({ data }) => {
+        const fn = data?.first_name || '';
+        const ln = data?.last_name || '';
+        if (fn || ln) {
+          setFirstName(fn); setLastName(ln);
+        } else {
+          // Fall back to full_name from auth metadata
+          const parts = (user?.user_metadata?.full_name || '').trim().split(/\s+/);
+          setFirstName(parts[0] || '');
+          setLastName(parts.slice(1).join(' ') || '');
+        }
+        setPhone(data?.phone || '');
+        setHomeCities(Array.isArray(data?.home_cities) ? data.home_cities : []);
+      });
+    setEmail(user?.email || '');
+  }, [user?.id]); // eslint-disable-line
+
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${user.id}/avatar.${ext}`;
+      await window.sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+      const { data: { publicUrl } } = window.sb.storage.from('avatars').getPublicUrl(path);
+      setLocalAvatar(publicUrl + '?t=' + Date.now());
+      await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
+      await window.sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+    } catch(err) { console.error('Avatar upload', err); }
+    setAvatarUploading(false);
+    e.target.value = '';
+  };
+
+  const addCity = () => {
+    const v = cityInput.trim();
+    if (!v || homeCities.includes(v)) { setCityInput(''); return; }
+    setHomeCities(p => [...p, v]);
+    setCityInput('');
+  };
+
+  const handleSave = async () => {
+    if (!user?.id || saving) return;
+    setSaving(true);
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+
+    // Update profiles table
+    await window.sb.from('profiles').update({
+      first_name: firstName.trim() || null,
+      last_name: lastName.trim() || null,
+      display_name: fullName || user.email?.split('@')[0] || 'User',
+      phone: phone.trim() || null,
+      home_cities: homeCities,
+    }).eq('id', user.id);
+
+    // Sync display name to auth metadata
+    if (fullName) await window.sb.auth.updateUser({ data: { full_name: fullName } });
+
+    // Email change (triggers confirmation email)
+    const newEmail = email.trim();
+    if (newEmail && newEmail !== user.email) {
+      const { error } = await window.sb.auth.updateUser({ email: newEmail });
+      if (!error) {
+        setEmailNote('Confirmation sent to ' + newEmail + ' — check your inbox.');
+        setSaving(false);
+        onSaved?.();
+        return; // Keep sheet open so user sees the note
+      } else {
+        setEmailNote('Could not update email: ' + error.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    setSaving(false);
+    onSaved?.();
+    onClose();
+  };
+
+  const SectionLabel = ({ children }) => (
+    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5,
+      textTransform: 'uppercase', color: mutedC, marginBottom: 6, marginTop: 20 }}>{children}</div>
+  );
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 75, background: dark ? '#13141b' : '#faf8f3',
+      display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+
+      {/* Top bar */}
+      <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))',
+        display: 'flex', alignItems: 'center', gap: 4, padding: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px)) 8px 0',
+        flexShrink: 0 }}>
+        <button onClick={onClose} style={{ border: 0, background: 'none', cursor: 'pointer',
+          padding: '10px 12px', color: accent, fontFamily: SANS, fontSize: 15, fontWeight: 600 }}>
+          Cancel
+        </button>
+        <span style={{ flex: 1, textAlign: 'center', fontFamily: SERIF, fontSize: 18,
+          fontWeight: 500, color: labelC, fontStyle: 'italic' }}>Edit Profile</span>
+        <button onClick={handleSave} disabled={saving} style={{ border: 0, background: 'none', cursor: 'pointer',
+          padding: '10px 12px', color: accent, fontFamily: SANS, fontSize: 15, fontWeight: 700,
+          opacity: saving ? 0.5 : 1 }}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {/* Scrollable body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px',
+        paddingBottom: 'max(40px, calc(env(safe-area-inset-bottom) + 24px))' }}>
+
+        {/* Avatar */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '28px 0 8px' }}>
+          <input ref={avatarRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarFile}/>
+          <button onClick={() => avatarRef.current?.click()} style={{ border: 0, background: 'none', cursor: 'pointer',
+            padding: 0, position: 'relative', opacity: avatarUploading ? 0.7 : 1 }}>
+            <Avatar src={localAvatar} name={[firstName, lastName].filter(Boolean).join(' ') || 'You'}
+              color="#7a6ca3" size={88}/>
+            <div style={{ position: 'absolute', bottom: 2, right: 2, width: 28, height: 28, borderRadius: '50%',
+              background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.25)' }}>
+              <MinkoIcon name="camera" size={14} color="white" strokeWidth={2}/>
+            </div>
+          </button>
+          {avatarUploading && (
+            <div style={{ position: 'absolute', fontFamily: SANS, fontSize: 12, color: mutedC, marginTop: 100 }}>Uploading…</div>
+          )}
+        </div>
+        <div style={{ textAlign: 'center', fontFamily: SANS, fontSize: 13, color: accent,
+          fontWeight: 600, paddingBottom: 4 }}
+          onClick={() => avatarRef.current?.click()}>
+          Change photo
+        </div>
+
+        {/* Name */}
+        <SectionLabel>Name</SectionLabel>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input value={firstName} onChange={e => setFirstName(e.target.value)}
+            placeholder="First" style={{ ...fieldStyle, flex: 1 }}/>
+          <input value={lastName} onChange={e => setLastName(e.target.value)}
+            placeholder="Last" style={{ ...fieldStyle, flex: 1 }}/>
+        </div>
+
+        {/* Email */}
+        <SectionLabel>Email</SectionLabel>
+        <input value={email} onChange={e => { setEmail(e.target.value); setEmailNote(''); }}
+          placeholder="your@email.com" type="email" style={fieldStyle}/>
+        {emailNote && (
+          <div style={{ fontFamily: SANS, fontSize: 12, color: accent, marginTop: 6, lineHeight: 1.4 }}>{emailNote}</div>
+        )}
+
+        {/* Phone */}
+        <SectionLabel>Phone</SectionLabel>
+        <input value={phone} onChange={e => setPhone(e.target.value)}
+          placeholder="+1 (555) 000-0000" type="tel" style={fieldStyle}/>
+
+        {/* Home cities */}
+        <SectionLabel>Home {homeCities.length === 1 ? 'City' : 'Cities'}</SectionLabel>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: homeCities.length ? 10 : 0 }}>
+          {homeCities.map((c, i) => (
+            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '6px 10px 6px 12px', borderRadius: 999,
+              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)',
+              border: dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(20,20,30,0.1)' }}>
+              <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 500, color: labelC }}>{c}</span>
+              <button onClick={() => setHomeCities(p => p.filter((_, j) => j !== i))}
+                style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, lineHeight: 0,
+                  color: mutedC, display: 'flex', alignItems: 'center' }}>
+                <MinkoIcon name="close" size={12} strokeWidth={2.4}/>
+              </button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={cityInput} onChange={e => setCityInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }}
+            placeholder="Add a city…" style={{ ...fieldStyle, flex: 1 }}/>
+          <button onClick={addCity} style={{
+            height: 46, padding: '0 16px', borderRadius: 12, border: 0, cursor: 'pointer',
+            background: accent, color: 'white', fontFamily: SANS, fontSize: 14, fontWeight: 600,
+            flexShrink: 0, opacity: cityInput.trim() ? 1 : 0.45,
+          }}>Add</button>
+        </div>
+
+        {/* Sign out */}
+        <div style={{ marginTop: 32, paddingTop: 20,
+          borderTop: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,20,30,0.06)' }}>
+          <button onClick={() => { onClose(); onSignOut?.(); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+              padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
+              background: dark ? 'rgba(229,83,75,0.1)' : 'rgba(229,83,75,0.07)' }}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#e5534b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: '#e5534b' }}>Sign out</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded, friendsRefreshKey = 0 }) {
   const [showWishlist, setShowWishlist] = useState2(false);
   const [showSettings, setShowSettings] = useState2(false);
@@ -1800,44 +2032,22 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         </div>
       )}
 
-      {/* Settings sheet */}
+      {/* Edit profile — full screen overlay */}
       {showSettings && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'flex', flexDirection: 'column' }}>
-          <div onClick={() => setShowSettings(false)} style={{ flex: 1, background: 'rgba(0,0,0,0.3)' }}/>
-          <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', paddingBottom: 'max(32px, calc(env(safe-area-inset-bottom) + 16px))' }}>
-            {/* Handle */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
-              <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
-            </div>
-            {/* Title */}
-            <div style={{ padding: '8px 22px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, color: labelC, fontStyle: 'italic' }}>Settings</span>
-              <button onClick={() => setShowSettings(false)} style={{ border: 0, background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)', borderRadius: '50%', width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: mutedC }}>
-                <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
-              </button>
-            </div>
-            {/* Settings rows */}
-            <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Change photo */}
-              <button onClick={() => { setShowSettings(false); avatarFileRef.current?.click(); }}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
-                  background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,20,30,0.04)' }}>
-                <MinkoIcon name="camera" size={20} color={labelC} strokeWidth={1.7}/>
-                <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: labelC }}>Change profile photo</span>
-                {avatarUploading && <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC, marginLeft: 'auto' }}>Uploading…</span>}
-              </button>
-              {/* Sign out */}
-              <button onClick={() => { setShowSettings(false); onSignOut?.(); }}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: 0, cursor: 'pointer', textAlign: 'left',
-                  background: dark ? 'rgba(229,83,75,0.1)' : 'rgba(229,83,75,0.07)' }}>
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#e5534b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-                <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: '#e5534b' }}>Sign out</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <EditProfileSheet
+          user={user}
+          dark={dark}
+          accent={accent}
+          onClose={() => setShowSettings(false)}
+          onSignOut={onSignOut}
+          onSaved={() => {
+            // Re-read profile to pick up new avatar and name
+            if (user?.id) {
+              window.sb.from('profiles').select('avatar_url, display_name').eq('id', user.id).single()
+                .then(({ data }) => { if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url); });
+            }
+          }}
+        />
       )}
 
       {/* Friend profile page — slides over everything */}

@@ -41,7 +41,7 @@
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=10"></script>
-<script type="text/babel" src="screens.jsx?v=11"></script>
+<script type="text/babel" src="screens.jsx?v=12"></script>
 <script type="text/babel" src="flows.jsx?v=36"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
@@ -153,8 +153,8 @@ function App() {
     setActiveFriendPin(null);
   };
 
-  const onPinTap = (id) => { setActivePin(id); setShowPreview(true); };
-  const onFriendPinTap = (id) => { setActiveFriendPin(id); setShowPreview(true); };
+  const onPinTap = (id) => { setActivePin(id); setShowDetail(true); };
+  const onFriendPinTap = (id) => { setActiveFriendPin(id); setShowDetail(true); };
 
   const navProps = {
     active: screen,
@@ -204,6 +204,7 @@ function App() {
               navProps={navProps}
               onLog={() => setShowLogPicker(true)}
               entries={entries}
+              user={user}
             />
           )}
 
@@ -260,6 +261,7 @@ function App() {
               entry={detailEntry} dark={dark} accent={accent}
               friendMode={isFriendMode} friend={isFriendMode ? activeFriend : null}
               friendsAtPlace={[]}
+              user={user}
               onClose={() => setShowDetail(false)}
               onEdit={!isFriendMode ? () => { setEditKey(k => k + 1); setShowEdit(true); } : undefined}
               onDelete={!isFriendMode ? () => setShowDeleteConfirm(true) : undefined}

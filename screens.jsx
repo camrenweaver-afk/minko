@@ -169,7 +169,7 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 // ─────────────────────────────────────────────────────────────
 // Top search bar (floats over map)
 // ─────────────────────────────────────────────────────────────
-function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
+function TopSearch({ dark, onTap, placeholder = 'Search your places', user }) {
   return (
     <div style={{
       position: 'absolute',
@@ -183,7 +183,7 @@ function TopSearch({ dark, onTap, placeholder = 'Search your places' }) {
           <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
           <span style={{ fontFamily: SANS, fontSize: 14.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>{placeholder}</span>
         </div>
-        <Avatar name="You" color="#7a6ca3" size={32}/>
+        <Avatar name={user?.user_metadata?.full_name || 'You'} color="#7a6ca3" size={32} src={user?.user_metadata?.avatar_url}/>
       </GlassSurface>
     </div>
   );
@@ -218,7 +218,7 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [] }) {
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user }) {
   const cat = window.MINKO_CATEGORY_COLORS;
   const pins = entries.filter(e => e.lon && e.lat).map(e => ({
     id: e.id, lon: e.lon, lat: e.lat,
@@ -234,7 +234,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         fitToPins={pins.length > 0}
       />
       <SafeTopBar dark={dark}/>
-      <TopSearch dark={dark}/>
+      <TopSearch dark={dark} user={user}/>
       <CategoryLegend dark={dark}/>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>
@@ -244,7 +244,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
 // ─────────────────────────────────────────────────────────────
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
-function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged }) {
+function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user }) {
   const [liked, setLiked] = useState(entry?.likedByMe || false);
   const [likeCount, setLikeCount] = useState(entry?.likes || 0);
   const [commentDraft, setCommentDraft] = useState('');
@@ -283,9 +283,14 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
       <div style={{ padding: '18px 20px 0' }}>
         {friendMode && friend && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Avatar name={friend.name} color={friend.color} size={22}/>
+            <Avatar
+              name={friend.display_name || friend.name}
+              color="#7a6ca3"
+              size={26}
+              src={friend.avatar_url}
+            />
             <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)' }}>
-              <b style={{ fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{friend.name}</b> logged this
+              <b style={{ fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{friend.display_name || friend.name}</b> logged this
             </span>
           </div>
         )}
@@ -365,7 +370,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
 
           {/* Comment composer */}
           <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <Avatar name="You" color="#7a6ca3" size={28}/>
+            <Avatar name={user?.user_metadata?.full_name || 'You'} color="#7a6ca3" size={28} src={user?.user_metadata?.avatar_url}/>
             <div style={{ flex: 1, position: 'relative' }}>
               <input
                 value={commentDraft}

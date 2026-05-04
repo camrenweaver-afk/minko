@@ -193,13 +193,8 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
 
         {/* Rating */}
         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Rating</div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {[1,2,3,4,5].map(i => (
-            <button key={i} onClick={() => setRating(i === rating ? 0 : i)} style={{ background: 'transparent', border: 0, padding: 3, cursor: 'pointer' }}>
-              <MinkoIcon name={i <= rating ? 'star' : 'star-outline'} size={30}
-                color={i <= rating ? '#c89e54' : (dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)')} strokeWidth={1.5}/>
-            </button>
-          ))}
+        <div style={{ marginBottom: 20 }}>
+          <HalfStarPicker rating={rating} onChange={setRating} size={30} dark={dark}/>
         </div>
 
         {/* Note */}
@@ -320,7 +315,6 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   const [showEdit, setShowEdit] = useState2(false);
   const [showPhotos, setShowPhotos] = useState2(false);
   const [showDelete, setShowDelete] = useState2(false);
-  const [ratingHover, setRatingHover] = useState2(0);
 
   useEffect2(() => { if (item) setLocalItem(item); }, [item?.id]);
   if (!item) return null;
@@ -399,18 +393,7 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
               color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Rating</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[1,2,3,4,5].map(i => (
-                <button key={i}
-                  onMouseEnter={() => setRatingHover(i)} onMouseLeave={() => setRatingHover(0)}
-                  onClick={() => setRating(i)}
-                  style={{ background: 'transparent', border: 0, padding: 3, cursor: 'pointer' }}>
-                  <MinkoIcon name={i <= (ratingHover || localItem.rating || 0) ? 'star' : 'star-outline'} size={30}
-                    color={i <= (ratingHover || localItem.rating || 0) ? '#c89e54' : (dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)')}
-                    strokeWidth={1.5}/>
-                </button>
-              ))}
-            </div>
+            <HalfStarPicker rating={localItem.rating || 0} onChange={setRating} size={30} dark={dark}/>
           </div>
 
           {localItem.note && (
@@ -959,14 +942,7 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
             <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
               How was it? <span style={{ color: accent }}>·</span>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[1,2,3,4,5].map(i => (
-                <button key={i} onClick={() => setRating(i)} style={{ background: 'transparent', border: 0, padding: 4, cursor: 'pointer' }}>
-                  <MinkoIcon name={i <= rating ? 'star' : 'star-outline'} size={32}
-                    color={i <= rating ? '#c89e54' : (dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)')} strokeWidth={1.5}/>
-                </button>
-              ))}
-            </div>
+            <HalfStarPicker rating={rating} onChange={setRating} size={32} dark={dark}/>
           </div>
 
           {/* Photos */}

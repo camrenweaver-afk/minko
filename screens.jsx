@@ -10,11 +10,63 @@ const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-
 
 const Stars = ({ n, size = 14, color = '#c89e54' }) => (
   <span style={{ display: 'inline-flex', gap: 2 }}>
-    {[1,2,3,4,5].map(i => (
-      <MinkoIcon key={i} name={i <= n ? 'star' : 'star-outline'} size={size} color={i <= n ? color : 'rgba(0,0,0,0.18)'} strokeWidth={1.4}/>
-    ))}
+    {[1,2,3,4,5].map(i => {
+      const full = n >= i;
+      const half = !full && n >= i - 0.5;
+      return (
+        <span key={i} style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
+          <MinkoIcon name="star-outline" size={size} color="rgba(0,0,0,0.18)" strokeWidth={1.4}/>
+          {(full || half) && (
+            <span style={{ position: 'absolute', inset: 0, width: full ? '100%' : '50%', overflow: 'hidden', lineHeight: 0 }}>
+              <MinkoIcon name="star" size={size} color={color}/>
+            </span>
+          )}
+        </span>
+      );
+    })}
   </span>
 );
+
+// Interactive half-star picker — used in all rating forms
+const HalfStarPicker = ({ rating = 0, onChange, size = 32, dark }) => {
+  const [hover, setHover] = useState(0);
+  const display = hover || rating || 0;
+  const emptyColor = dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)';
+  return (
+    <span style={{ display: 'inline-flex', gap: 4 }}>
+      {[1,2,3,4,5].map(i => {
+        const full = display >= i;
+        const half = !full && display >= i - 0.5;
+        return (
+          <span key={i} style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
+            {/* Empty star base */}
+            <MinkoIcon name="star-outline" size={size} color={emptyColor} strokeWidth={1.5}/>
+            {/* Filled overlay — full or half width */}
+            {(full || half) && (
+              <span style={{ position: 'absolute', inset: 0, width: full ? '100%' : '50%', overflow: 'hidden', lineHeight: 0, pointerEvents: 'none' }}>
+                <MinkoIcon name="star" size={size} color="#c89e54"/>
+              </span>
+            )}
+            {/* Left half = i-0.5 */}
+            <button
+              onMouseEnter={() => setHover(i - 0.5)} onMouseLeave={() => setHover(0)}
+              onClick={() => onChange(rating === i - 0.5 ? 0 : i - 0.5)}
+              style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%',
+                background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+            />
+            {/* Right half = i */}
+            <button
+              onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}
+              onClick={() => onChange(rating === i ? 0 : i)}
+              style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%',
+                background: 'none', border: 0, cursor: 'pointer', padding: 0 }}
+            />
+          </span>
+        );
+      })}
+    </span>
+  );
+};
 
 const CategoryChip = ({ category, color, dark }) => {
   const map = { restaurant: 'Restaurant', hotel: 'Hotel', attraction: 'Attraction', experience: 'Experience' };

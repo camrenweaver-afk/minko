@@ -244,7 +244,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
 // ─────────────────────────────────────────────────────────────
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
-function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user }) {
+function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user, onFriendProfile }) {
   const [liked, setLiked] = useState(entry?.likedByMe || false);
   const [likeCount, setLikeCount] = useState(entry?.likes || 0);
   const [commentDraft, setCommentDraft] = useState('');
@@ -282,7 +282,11 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
       )}
       <div style={{ padding: '18px 20px 0' }}>
         {friendMode && friend && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <button onClick={onFriendProfile} style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+            background: 'none', border: 'none', padding: 0, cursor: onFriendProfile ? 'pointer' : 'default',
+            textAlign: 'left',
+          }}>
             <Avatar
               name={friend.display_name || friend.name}
               color="#7a6ca3"
@@ -292,7 +296,8 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
             <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)' }}>
               <b style={{ fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{friend.display_name || friend.name}</b> logged this
             </span>
-          </div>
+            {onFriendProfile && <MinkoIcon name="chevron-right" size={14} color={dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)'} strokeWidth={2}/>}
+          </button>
         )}
         <CategoryChip category={entry.category} dark={dark}/>
         <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: '4px 0 6px',

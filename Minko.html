@@ -41,7 +41,7 @@
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=11"></script>
-<script type="text/babel" src="screens.jsx?v=12"></script>
+<script type="text/babel" src="screens.jsx?v=13"></script>
 <script type="text/babel" src="flows.jsx?v=37"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
@@ -88,6 +88,7 @@ function App() {
   const [activeFriendPin, setActiveFriendPin] = useState(null);
   const [friendEntries, setFriendEntries] = useState([]);
   const [friendsRefreshKey, setFriendsRefreshKey] = useState(0);
+  const [showFriendProfile, setShowFriendProfile] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -266,6 +267,7 @@ function App() {
               onEdit={!isFriendMode ? () => { setEditKey(k => k + 1); setShowEdit(true); } : undefined}
               onDelete={!isFriendMode ? () => setShowDeleteConfirm(true) : undefined}
               onPhotosChanged={!isFriendMode ? () => { setPhotoKey(k => k + 1); setShowAddPhoto(true); } : undefined}
+              onFriendProfile={isFriendMode && activeFriend ? () => setShowFriendProfile(true) : undefined}
             />
           </BottomSheet>
 
@@ -337,6 +339,18 @@ function App() {
               dark={dark} accent={accent}
               onComplete={() => { setOnboardingDismissed(true); setShowLog(true); }}
               onSkip={() => setOnboardingDismissed(true)}
+            />
+          )}
+
+          {/* Friend profile — opened from PlaceDetailSheet friend attribution */}
+          {showFriendProfile && activeFriend && (
+            <FriendProfilePage
+              profile={activeFriend}
+              dark={dark} accent={accent}
+              currentUserId={user?.id}
+              onBack={() => setShowFriendProfile(false)}
+              onFriendshipChanged={() => setFriendsRefreshKey(k => k + 1)}
+              zIndex={120}
             />
           )}
 

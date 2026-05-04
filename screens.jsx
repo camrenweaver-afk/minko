@@ -245,21 +245,67 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
 function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user, onFriendProfile }) {
-  const [liked, setLiked] = useState(entry?.likedByMe || false);
-  const [likeCount, setLikeCount] = useState(entry?.likes || 0);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [comments, setComments] = useState([]);
   const [commentDraft, setCommentDraft] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
   useEffect(() => {
-    setLiked(entry?.likedByMe || false);
-    setLikeCount(entry?.likes || 0);
+    setLiked(false);
+    setLikeCount(0);
+    setComments([]);
     setCommentDraft('');
-  }, [entry?.id]);
+    if (!entry?.id || !window.sb) return;
+
+    // Fetch like count + whether current user liked this entry
+    const likesQ = window.sb.from('entry_likes').select('user_id').eq('entry_id', entry.id);
+    const myLikeQ = user?.id
+      ? window.sb.from('entry_likes').select('id').eq('entry_id', entry.id).eq('user_id', user.id).maybeSingle()
+      : Promise.resolve({ data: null });
+
+    Promise.all([likesQ, myLikeQ]).then(([all, mine]) => {
+      setLikeCount((all.data || []).length);
+      setLiked(!!mine.data);
+    });
+
+    // Fetch comments with commenter profile
+    window.sb.from('entry_comments')
+      .select('id, body, created_at, user_id, profiles(display_name, avatar_url)')
+      .eq('entry_id', entry.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setComments(data || []));
+  }, [entry?.id]); // eslint-disable-line
+
   if (!entry) return null;
   const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[entry.category]) || accent;
-  const toggleLike = () => {
-    setLiked(v => {
-      setLikeCount(c => c + (v ? -1 : 1));
-      return !v;
-    });
+
+  const toggleLike = async () => {
+    if (!user?.id || likeLoading) return;
+    setLikeLoading(true);
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikeCount(c => c + (wasLiked ? -1 : 1));
+    if (wasLiked) {
+      await window.sb.from('entry_likes').delete().eq('entry_id', entry.id).eq('user_id', user.id);
+    } else {
+      await window.sb.from('entry_likes').insert({ entry_id: entry.id, user_id: user.id });
+    }
+    setLikeLoading(false);
+  };
+
+  const submitComment = async () => {
+    if (!user?.id || !commentDraft.trim() || commentSubmitting) return;
+    setCommentSubmitting(true);
+    const body = commentDraft.trim();
+    setCommentDraft('');
+    const { data } = await window.sb.from('entry_comments')
+      .insert({ entry_id: entry.id, user_id: user.id, body })
+      .select('id, body, created_at, user_id, profiles(display_name, avatar_url)')
+      .single();
+    if (data) setComments(prev => [...prev, data]);
+    setCommentSubmitting(false);
   };
   return (
     <div style={{ padding: '6px 0 24px' }}>
@@ -355,23 +401,56 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           </div>
         )}
 
-        {/* Likes row */}
+        {/* Likes + Comments */}
         <div style={{ marginTop: 20, paddingTop: 18,
           borderTop: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button onClick={toggleLike} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              padding: '7px 12px 7px 10px', borderRadius: 999, cursor: 'pointer',
-              border: liked ? `1px solid ${catColor}` : (dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)'),
-              background: liked ? `${catColor}18` : 'transparent',
-              color: liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e'),
-              fontFamily: SANS, fontSize: 13, fontWeight: 600,
-              transition: 'all 0.15s ease',
-            }}>
-              <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.8}/>
-              {likeCount}
-            </button>
-          </div>
+
+          {/* Like button */}
+          <button onClick={toggleLike} disabled={!user?.id} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            padding: '7px 14px 7px 10px', borderRadius: 999, cursor: user?.id ? 'pointer' : 'default',
+            border: liked ? `1px solid ${catColor}` : (dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)'),
+            background: liked ? `${catColor}18` : 'transparent',
+            color: liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e'),
+            fontFamily: SANS, fontSize: 13, fontWeight: 600,
+            transition: 'all 0.15s ease',
+          }}>
+            <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.8}/>
+            {likeCount > 0 ? likeCount : ''} {likeCount === 1 ? 'like' : likeCount > 1 ? 'likes' : 'Like'}
+          </button>
+
+          {/* Existing comments */}
+          {comments.length > 0 && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {comments.map(c => {
+                const name = c.profiles?.display_name || 'User';
+                const avatar = c.profiles?.avatar_url;
+                const isMe = c.user_id === user?.id;
+                return (
+                  <div key={c.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                    <Avatar name={name} color="#7a6ca3" size={26} src={avatar}/>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
+                          color: dark ? '#f5f1e8' : '#1a1a2e' }}>{name}</span>
+                        {isMe && (
+                          <button onClick={async () => {
+                            await window.sb.from('entry_comments').delete().eq('id', c.id);
+                            setComments(prev => prev.filter(x => x.id !== c.id));
+                          }} style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer',
+                            color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)', lineHeight: 1 }}>
+                            <MinkoIcon name="close" size={11} strokeWidth={2.2}/>
+                          </button>
+                        )}
+                      </div>
+                      <p style={{ margin: '2px 0 0', fontFamily: SANS, fontSize: 13.5,
+                        color: dark ? 'rgba(245,241,232,0.85)' : 'rgba(26,26,46,0.8)', lineHeight: 1.4 }}>{c.body}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Comment composer */}
           <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -380,18 +459,20 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
               <input
                 value={commentDraft}
                 onChange={(e) => setCommentDraft(e.target.value)}
-                placeholder={friendMode ? `Reply to ${friend?.name || 'them'}…` : 'Add a comment…'}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
+                placeholder={friendMode ? `Reply to ${friend?.display_name || friend?.name || 'them'}…` : 'Add a comment…'}
                 style={{
                   width: '100%', height: 38, padding: '0 44px 0 14px', boxSizing: 'border-box',
                   borderRadius: 999, border: 0, outline: 'none',
                   background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
                   fontFamily: SANS, fontSize: 13.5, color: dark ? '#f5f1e8' : '#1a1a2e',
                 }}/>
-              {commentDraft && (
-                <button onClick={() => setCommentDraft('')} style={{
+              {commentDraft.trim() && (
+                <button onClick={submitComment} disabled={commentSubmitting} style={{
                   position: 'absolute', right: 4, top: 4, width: 30, height: 30, borderRadius: '50%',
                   background: catColor, color: 'white', border: 0, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: commentSubmitting ? 0.6 : 1,
                 }}>
                   <MinkoIcon name="send" size={14} color="white" strokeWidth={2}/>
                 </button>

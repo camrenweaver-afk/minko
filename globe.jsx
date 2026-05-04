@@ -204,16 +204,20 @@ function MinkoGlobe({
   }, [dark]); // eslint-disable-line
 
   // Refresh markers when pins / active pin / accent changes
-  // Also fit to pins on first arrival if fitToPins is set
+  // Also fit to pins on first arrival — works for both globe and mini-map modes
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     addMarkers();
-    if (fitToPins && !hasFittedRef.current) {
+    if (!hasFittedRef.current) {
       const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
       if (valid.length > 0) {
         hasFittedRef.current = true;
-        fitGlobe(map);
+        if (!scrollableRef.current) {
+          fitMiniMap(map);
+        } else if (fitToPins) {
+          fitGlobe(map);
+        }
       }
     }
   }, [pins, activePinId, accent]); // eslint-disable-line

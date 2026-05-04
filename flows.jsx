@@ -1501,7 +1501,8 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
         {/* Mini globe */}
         <div style={{ position: 'relative', height: 220, margin: '8px 16px', borderRadius: 18, overflow: 'hidden' }}>
           <MinkoGlobe dark={dark} accent={accent} scrollable={false}
-            pins={pEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
+            pins={pEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: (window.MINKO_CATEGORY_COLORS?.[e.category] || accent) }))}
+            onPinClick={(id) => setViewingEntry(pEntries.find(e => e.id === id) || null)}
           />
         </div>
 

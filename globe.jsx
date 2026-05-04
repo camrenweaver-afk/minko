@@ -155,7 +155,7 @@ function MinkoGlobe({
       projection: isMini ? 'mercator' : 'globe',
       scrollZoom: !isMini,
       dragRotate: false,
-      touchZoomRotate: !isMini,
+      touchZoomRotate: true,
       touchPitch: false,
       attributionControl: false,
       logoPosition: 'bottom-right',
@@ -165,6 +165,7 @@ function MinkoGlobe({
 
     map.on('load', () => {
       if (!isMini) setAtmosphere(map, isDark);
+      if (isMini) map.touchZoomRotate.disableRotation();
       addMarkers();
       if (isMini) {
         fitMiniMap(map);
@@ -194,6 +195,7 @@ function MinkoGlobe({
     map.setStyle(newStyle);
     map.once('styledata', () => {
       if (!scrollableRef.current) {
+        map.touchZoomRotate.disableRotation();
         addMarkers();
         fitMiniMap(map);
       } else {

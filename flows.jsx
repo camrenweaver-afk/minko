@@ -1390,7 +1390,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 // SHARED FRIEND PROFILE PAGE
 // Used from both ProfileScreen (friends list) and FriendsScreen (search/friend rows)
 // ─────────────────────────────────────────────────────────────
-function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFriendshipChanged, zIndex = 80 }) {
+function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack, onFriendshipChanged, zIndex = 80 }) {
   const [pEntries, setPEntries] = useState2([]);
   const [friendsCount, setFriendsCount] = useState2(null);
   const [loading, setLoading] = useState2(true);
@@ -1566,6 +1566,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
               entry={viewingEntry} dark={dark} accent={accent}
               friendMode={true} friend={profile}
               friendsAtPlace={[]}
+              user={user}
               onClose={() => setViewingEntry(null)}
             />
           </div>
@@ -1870,6 +1871,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           profile={viewingFriend}
           dark={dark} accent={accent}
           currentUserId={user?.id}
+          user={user}
           onBack={() => setViewingFriend(null)}
           onFriendshipChanged={() => {
             // Refresh friends list after add/remove
@@ -2082,6 +2084,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           profile={viewingProfile}
           dark={dark} accent={accent}
           currentUserId={user?.id}
+          user={user}
           onBack={() => setViewingProfile(null)}
           onFriendshipChanged={loadFriendships}
           zIndex={60}

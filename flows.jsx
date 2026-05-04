@@ -1396,6 +1396,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
   const [loading, setLoading] = useState2(true);
   const [friendshipId, setFriendshipId] = useState2(null);
   const [optimistic, setOptimistic] = useState2(false);
+  const [viewingEntry, setViewingEntry] = useState2(null);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -1527,9 +1528,10 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
           ) : pEntries.length === 0 ? (
             <div style={{ padding: '40px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No places logged yet</div>
           ) : pTopRated.slice(0, 5).map(e => (
-            <div key={e.id} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14,
+            <button key={e.id} onClick={() => setViewingEntry(e)} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14,
               background: dark ? 'rgba(255,255,255,0.04)' : 'white',
-              border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)' }}>
+              border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
+              cursor: 'pointer', textAlign: 'left', width: '100%' }}>
               {e.photos?.[0] ? (
                 <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
               ) : (
@@ -1546,10 +1548,28 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, onBack, onFri
                 <div style={{ fontFamily: SANS, fontSize: 11.5, color: mutedC,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location} · {e.date}</div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
+
+      {/* Inline entry detail — slides up over the profile page */}
+      {viewingEntry && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: zIndex + 1, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div onClick={() => setViewingEntry(null)} style={{ flex: 1, background: 'rgba(15,20,40,0.25)', backdropFilter: 'blur(2px)' }}/>
+          <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '85%', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+            </div>
+            <PlaceDetailSheet
+              entry={viewingEntry} dark={dark} accent={accent}
+              friendMode={true} friend={profile}
+              friendsAtPlace={[]}
+              onClose={() => setViewingEntry(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1985,7 +2005,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const getFriendProfile = (f) => f.requester_id === user?.id ? f.addressee : f.requester;
 
   const showSearch = searchQuery.trim().length >= 2;
-  const showPanel = showSearch || friendships.length > 0;
+  const showPanel = showSearch;
   const pins = friendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
@@ -2028,58 +2048,26 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
         </GlassSurface>
       </div>
 
-      {/* Panel */}
+      {/* Search results panel — only shown while actively searching */}
       {showPanel && (
         <div style={{ position: 'absolute', top: PANEL_TOP, left: 12, right: 12, bottom: PANEL_BOT, zIndex: 25, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {showSearch ? (
-            <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-              {searching ? (
-                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>Searching…</div>
-              ) : searchResults.length === 0 ? (
-                <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>No users found</div>
-              ) : searchResults.map((p, i) => {
-                const isFriend = optimisticAdded.has(p.id) || !!getFs(p.id);
-                return (
-                  <div key={p.id} style={{ padding: '10px 16px', ...sep(i, searchResults.length) }}>
-                    <FriendRow profile={p} right={
-                      isFriend
-                        ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent, flexShrink: 0 }}>Added</span>
-                        : <_FriendPillBtn onClick={() => addFriend(p.id)} label="Add" bg={dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)'} color={labelText}/>
-                    }/>
-                  </div>
-                );
-              })}
-            </GlassSurface>
-          ) : friendships.length > 0 && (
-            <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
-              <div style={{ padding: '10px 16px 4px', fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Friends</div>
-              {friendships.map((f, i) => {
-                const p = getFriendProfile(f);
-                const count = friendEntries.filter(e => e.user_id === p?.id).length;
-                return (
-                  <div key={f.id} style={{ padding: '10px 16px', ...sep(i, friendships.length) }}>
-                    <FriendRow profile={p} sub={`${count} ${count === 1 ? 'place' : 'places'}`} right={
-                      <button onClick={() => removeFriend(f.id)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 6, color: mutedText, display: 'flex', alignItems: 'center' }}>
-                        <MinkoIcon name="close" size={15} strokeWidth={2}/>
-                      </button>
-                    }/>
-                  </div>
-                );
-              })}
-            </GlassSurface>
-          )}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!showPanel && !loading && (
-        <div style={{ position: 'absolute', top: PANEL_TOP, left: 12, right: 12, zIndex: 20 }}>
-          <GlassSurface dark={dark} radius={16} style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <MinkoIcon name="friends" size={22} color={accent} strokeWidth={1.5}/>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: labelText }}>Find your friends</div>
-              <div style={{ fontFamily: SANS, fontSize: 12, color: mutedText, marginTop: 2 }}>Search by name above to add friends and see their travels on the globe</div>
-            </div>
+          <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
+            {searching ? (
+              <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>Searching…</div>
+            ) : searchResults.length === 0 ? (
+              <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: mutedText, textAlign: 'center' }}>No users found</div>
+            ) : searchResults.map((p, i) => {
+              const isFriend = optimisticAdded.has(p.id) || !!getFs(p.id);
+              return (
+                <div key={p.id} style={{ padding: '10px 16px', ...sep(i, searchResults.length) }}>
+                  <FriendRow profile={p} right={
+                    isFriend
+                      ? <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500, color: accent, flexShrink: 0 }}>Added</span>
+                      : <_FriendPillBtn onClick={() => addFriend(p.id)} label="Add" bg={dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.08)'} color={labelText}/>
+                  }/>
+                </div>
+              );
+            })}
           </GlassSurface>
         </div>
       )}

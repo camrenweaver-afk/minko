@@ -583,10 +583,10 @@ function ActionPickerSheet({ dark, accent, onClose, onLogVisit, onSaveWishlist }
 // ─────────────────────────────────────────────────────────────
 // SAVE TO WISHLIST FLOW (2 steps)
 // ─────────────────────────────────────────────────────────────
-function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm }) {
-  const [step, setStep] = useState2(1);
-  const [place, setPlace] = useState2(null);
-  const [category, setCategory] = useState2('experience');
+function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null }) {
+  const [step, setStep] = useState2(initialPlace ? 2 : 1);
+  const [place, setPlace] = useState2(initialPlace);
+  const [category, setCategory] = useState2(initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : 'experience');
   const [note, setNote] = useState2('');
   const [query, setQuery] = useState2('');
   const [results, setResults] = useState2([]);

@@ -285,25 +285,220 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 }
 
 // ─────────────────────────────────────────────────────────────
-// Top search bar (floats over map)
+// Top search bar (floats over map) — full Mapbox search + place card
 // ─────────────────────────────────────────────────────────────
-function TopSearch({ dark, onTap, placeholder = 'Search your places', user }) {
+function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist }) {
+  const [active, setActive]         = useState(false);
+  const [query, setQuery]           = useState('');
+  const [results, setResults]       = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [cardPlace, setCardPlace]   = useState(null);
+  const [retrieving, setRetrieving] = useState(false);
+  const [sessionToken] = useState(() => 'minko-srch-' + Math.random().toString(36).slice(2));
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (active) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [active]);
+
+  // Search debounce
+  useEffect(() => {
+    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
+        const res = await fetch(url);
+        const json = await res.json();
+        setResults((json.suggestions || []).map(s => ({
+          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
+          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
+        })));
+      } catch { setResults([]); }
+      setLoading(false);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const selectResult = async (r) => {
+    setResults([]);
+    setActive(false);
+    setRetrieving(true);
+    try {
+      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const feat = json.features?.[0];
+      const lon  = feat?.geometry?.coordinates[0] ?? null;
+      const lat  = feat?.geometry?.coordinates[1] ?? null;
+      const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
+      setCardPlace({ ...r, lon, lat, coords, isCustom: false });
+    } catch {
+      setCardPlace({ ...r, lon: null, lat: null, coords: null, isCustom: false });
+    }
+    setRetrieving(false);
+  };
+
+  const dismiss    = () => { setActive(false); setQuery(''); setResults([]); };
+  const closeCard  = () => { setCardPlace(null); setQuery(''); };
+  const handleLog  = () => { if (!cardPlace) return; onLogReview?.(cardPlace);     closeCard(); };
+  const handleWish = () => { if (!cardPlace) return; onSaveWishlist?.(cardPlace);  closeCard(); };
+
+  const textC  = dark ? '#f5f1e8' : '#1a1a2e';
+  const mutedC = dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)';
+
   return (
-    <div style={{
-      position: 'absolute',
-      top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)',
-      left: 12, right: 12, zIndex: 30,
-      display: 'flex', gap: 10, alignItems: 'center',
-    }}>
-      <GlassSurface dark={dark} radius={26} style={{ flex: 1, height: 52, padding: '0 10px 0 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block' }} alt="minko"/>
-        <div onClick={onTap} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer' }}>
-          <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'} strokeWidth={1.8}/>
-          <span style={{ fontFamily: SANS, fontSize: 14.5, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>{placeholder}</span>
+    <>
+      {/* Backdrop */}
+      {(active || !!cardPlace) && (
+        <div onClick={() => { dismiss(); closeCard(); }} style={{
+          position: 'absolute', inset: 0, zIndex: 34,
+          background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(2px)',
+          animation: 'minko-fade-in 0.15s ease',
+        }}/>
+      )}
+
+      {/* Search pill + dropdown */}
+      <div style={{
+        position: 'absolute',
+        top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)',
+        left: 12, right: 12, zIndex: 36,
+      }}>
+        <GlassSurface dark={dark} radius={26} style={{
+          height: 52, padding: '0 10px 0 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          {!active && (
+            <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
+          )}
+
+          {!active ? (
+            <div onClick={() => setActive(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 0' }}>
+              <MinkoIcon name="search" size={18} color={mutedC} strokeWidth={1.8}/>
+              <span style={{ fontFamily: SANS, fontSize: 14.5, color: mutedC }}>Search places…</span>
+            </div>
+          ) : (
+            <>
+              <MinkoIcon name="search" size={18} color={mutedC} strokeWidth={1.8}/>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Restaurants, hotels, attractions…"
+                style={{
+                  flex: 1, border: 'none', outline: 'none', background: 'transparent',
+                  fontFamily: SANS, fontSize: 15, color: textC,
+                }}
+              />
+              {query.length > 0 && (
+                <button onClick={() => setQuery('')} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedC }}>
+                  <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
+                </button>
+              )}
+            </>
+          )}
+
+          {!active
+            ? <Avatar name={user?.user_metadata?.full_name || 'You'} color="#7a6ca3" size={32} src={user?.user_metadata?.avatar_url}/>
+            : <button onClick={dismiss} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '4px 6px', fontFamily: SANS, fontSize: 14, fontWeight: 600, color: accent, flexShrink: 0 }}>Cancel</button>
+          }
+        </GlassSurface>
+
+        {/* Results dropdown */}
+        {active && (results.length > 0 || (loading && query.trim())) && (
+          <GlassSurface dark={dark} radius={18} style={{ marginTop: 8, overflow: 'hidden' }}>
+            {loading && results.length === 0 && (
+              <div style={{ padding: '14px 18px', fontFamily: SANS, fontSize: 13, color: mutedC }}>Searching…</div>
+            )}
+            {results.map((r, i) => (
+              <button key={r.id} onClick={() => selectResult(r)} style={{
+                width: '100%', display: 'flex', gap: 12, alignItems: 'center',
+                padding: '12px 16px', border: 0, cursor: 'pointer', textAlign: 'left', background: 'none',
+                borderBottom: i < results.length - 1
+                  ? (dark ? '0.5px solid rgba(255,255,255,0.07)' : '0.5px solid rgba(0,0,0,0.06)')
+                  : 'none',
+              }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                  background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <MinkoIcon name="pin" size={16} color={accent} strokeWidth={1.8}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: textC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                  {r.sub && <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sub}</div>}
+                </div>
+                <MinkoIcon name="chevron-right" size={14} color={mutedC} strokeWidth={2}/>
+              </button>
+            ))}
+          </GlassSurface>
+        )}
+      </div>
+
+      {/* Retrieving indicator */}
+      {retrieving && (
+        <div style={{
+          position: 'absolute', zIndex: 36,
+          top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 70px)',
+          left: '50%', transform: 'translateX(-50%)',
+          background: dark ? 'rgba(22,24,36,0.92)' : 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(14px)', borderRadius: 12, padding: '10px 18px',
+          fontFamily: SANS, fontSize: 13, color: mutedC, whiteSpace: 'nowrap',
+        }}>Finding place…</div>
+      )}
+
+      {/* Place action card */}
+      {cardPlace && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 42,
+          background: dark ? '#1c1d28' : '#faf8f3',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.22)',
+          padding: '0 20px max(28px, calc(env(safe-area-inset-bottom, 0px) + 20px))',
+          animation: 'minko-fade-in 0.18s ease',
+        }}>
+          {/* Handle */}
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 8px' }}>
+            <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+          </div>
+          {/* Close */}
+          <button onClick={closeCard} style={{
+            position: 'absolute', top: 16, right: 20,
+            width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer',
+            background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: textC,
+          }}>
+            <MinkoIcon name="close" size={15} strokeWidth={2}/>
+          </button>
+          {/* Category chip */}
+          <CategoryChip category={mapboxCategoryToMinko(cardPlace.poi_categories)} dark={dark}/>
+          {/* Place name */}
+          <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 500, color: textC, letterSpacing: -0.3, lineHeight: 1.1, margin: '6px 0 4px' }}>
+            {cardPlace.name}
+          </div>
+          {/* Address */}
+          {cardPlace.sub && (
+            <div style={{ fontFamily: SANS, fontSize: 13, color: mutedC, marginBottom: 4 }}>{cardPlace.sub}</div>
+          )}
+          {/* Action buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+            <button onClick={handleLog} style={{
+              height: 52, borderRadius: 16, border: 0, cursor: 'pointer',
+              background: accent, color: 'white',
+              fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
+              boxShadow: `0 4px 16px ${accent}44`,
+            }}>Log a review</button>
+            <button onClick={handleWish} style={{
+              height: 52, borderRadius: 16, border: 0, cursor: 'pointer',
+              background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)',
+              color: dark ? '#f5f1e8' : '#1a1a2e',
+              fontFamily: SANS, fontSize: 15, fontWeight: 600,
+            }}>Save to wishlist</button>
+          </div>
         </div>
-        <Avatar name={user?.user_metadata?.full_name || 'You'} color="#7a6ca3" size={32} src={user?.user_metadata?.avatar_url}/>
-      </GlassSurface>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -336,7 +531,7 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user }) {
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist }) {
   const cat = window.MINKO_CATEGORY_COLORS;
   const pins = entries.filter(e => e.lon && e.lat).map(e => ({
     id: e.id, lon: e.lon, lat: e.lat,
@@ -352,7 +547,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         fitToPins={pins.length > 0}
       />
       <SafeTopBar dark={dark}/>
-      <TopSearch dark={dark} user={user}/>
+      <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist}/>
       <CategoryLegend dark={dark}/>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>

@@ -42,8 +42,8 @@
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=15"></script>
-<script type="text/babel" src="screens.jsx?v=21"></script>
-<script type="text/babel" src="flows.jsx?v=46"></script>
+<script type="text/babel" src="screens.jsx?v=22"></script>
+<script type="text/babel" src="flows.jsx?v=47"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -81,6 +81,7 @@ function App() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [logPickerPlace, setLogPickerPlace] = useState(null);
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
+  const [wishlistInitialPlace, setWishlistInitialPlace] = useState(null);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
@@ -137,8 +138,20 @@ function App() {
 
   const handleWishlistAdded = () => {
     setShowWishlistAdd(false);
+    setWishlistInitialPlace(null);
     setWishlistRefreshKey(k => k + 1);
     refreshWishlistCount();
+  };
+
+  const onSearchLogReview = (place) => {
+    setLogPickerPlace(place);
+    setLogKey(k => k + 1);
+    setShowLog(true);
+  };
+
+  const onSearchSaveWishlist = (place) => {
+    setWishlistInitialPlace(place);
+    setShowWishlistAdd(true);
   };
 
   const handleSignOut = async () => {
@@ -210,6 +223,8 @@ function App() {
               onLog={() => setShowLogPicker(true)}
               entries={entries}
               user={user}
+              onLogReview={onSearchLogReview}
+              onSaveWishlist={onSearchSaveWishlist}
             />
           )}
 
@@ -307,11 +322,13 @@ function App() {
           </BottomSheet>
 
           {/* Wishlist add flow */}
-          <BottomSheet open={showWishlistAdd} onClose={() => setShowWishlistAdd(false)} dark={dark}>
+          <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); }} dark={dark}>
             <SaveToWishlistFlow
+              key={wishlistInitialPlace?.id || 'wish'}
               dark={dark} accent={accent}
               user={user}
-              onClose={() => setShowWishlistAdd(false)}
+              initialPlace={wishlistInitialPlace}
+              onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); }}
               onConfirm={handleWishlistAdded}
             />
           </BottomSheet>

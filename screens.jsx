@@ -295,6 +295,99 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
 }
 
 // ─────────────────────────────────────────────────────────────
+// PHOTO LIGHTBOX — full-screen swipeable viewer
+// ─────────────────────────────────────────────────────────────
+function PhotoLightbox({ photos, startIndex = 0, onClose }) {
+  const [current, setCurrent] = React.useState(startIndex);
+  const scrollRef = React.useRef(null);
+  const didInit = React.useRef(false);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || didInit.current) return;
+    didInit.current = true;
+    if (startIndex > 0) {
+      // Immediate jump with no animation on mount
+      el.scrollLeft = startIndex * el.clientWidth;
+    }
+  }, []);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const index = Math.round(el.scrollLeft / el.clientWidth);
+    if (index !== current) setCurrent(index);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 400,
+      background: 'rgba(0,0,0,0.97)',
+      display: 'flex', flexDirection: 'column',
+      animation: 'minko-fade-in 0.15s ease',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: 'max(16px, calc(env(safe-area-inset-top, 0px) + 12px)) 16px 12px',
+        flexShrink: 0,
+      }}>
+        <button onClick={onClose} style={{
+          width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.12)', color: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <MinkoIcon name="close" size={16} strokeWidth={2} color="white"/>
+        </button>
+        {photos.length > 1 && (
+          <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>
+            {current + 1} / {photos.length}
+          </span>
+        )}
+        <div style={{ width: 36 }}/>
+      </div>
+
+      {/* Swipeable photo strip */}
+      <div ref={scrollRef} onScroll={handleScroll} style={{
+        flex: 1, display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory',
+        scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
+        alignItems: 'center',
+      }}>
+        {photos.map((url, i) => (
+          <div key={i} style={{
+            flexShrink: 0, width: '100%', height: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            scrollSnapAlign: 'start', padding: '0 4px', boxSizing: 'border-box',
+          }}>
+            <img src={url} alt="" style={{
+              maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+              borderRadius: 4, userSelect: 'none', WebkitUserSelect: 'none',
+            }}/>
+          </div>
+        ))}
+      </div>
+
+      {/* Dot indicators */}
+      {photos.length > 1 && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 6,
+          padding: 'max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px)) 0',
+          flexShrink: 0,
+        }}>
+          {photos.map((_, i) => (
+            <div key={i} style={{
+              width: i === current ? 16 : 6, height: 6, borderRadius: 999,
+              background: i === current ? 'white' : 'rgba(255,255,255,0.3)',
+              transition: 'width 0.2s, background 0.2s',
+            }}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
 function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user, onFriendProfile }) {
@@ -304,6 +397,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   const [comments, setComments] = useState([]);
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null); // null = closed
 
   useEffect(() => {
     setLiked(false);
@@ -360,22 +454,30 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
     if (data) setComments(prev => [...prev, data]);
     setCommentSubmitting(false);
   };
+  const photos = entry.photos?.length ? entry.photos : [];
+  const openLightbox = (i) => setLightboxIndex(i);
+
   return (
     <div style={{ padding: '6px 0 24px' }}>
-      {/* Photo gallery */}
-      {entry.photos?.length === 1 && (
-        <div style={{ height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden' }}>
-          <img src={entry.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-        </div>
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <PhotoLightbox photos={photos} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)}/>
       )}
-      {entry.photos?.length > 1 && (
+
+      {/* Photo gallery */}
+      {photos.length === 1 && (
+        <button onClick={() => openLightbox(0)} style={{ display: 'block', width: 'calc(100% - 32px)', height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer' }}>
+          <img src={photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+        </button>
+      )}
+      {photos.length > 1 && (
         <div style={{ margin: '4px 0 0', overflowX: 'auto', display: 'flex', gap: 8,
           padding: '0 16px', scrollSnapType: 'x mandatory', paddingBottom: 2 }}>
-          {entry.photos.map((url, i) => (
-            <div key={i} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
-              overflow: 'hidden', scrollSnapAlign: 'start' }}>
+          {photos.map((url, i) => (
+            <button key={i} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+              overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer' }}>
               <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-            </div>
+            </button>
           ))}
         </div>
       )}

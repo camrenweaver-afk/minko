@@ -221,15 +221,26 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
 
         {/* Date */}
         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>
-          {isWishlist ? 'Planning to go' : 'Date visited'}
+          {isWishlist ? 'Planning to go' : 'Date visited'} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>· optional</span>
         </div>
-        <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
-          style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px',
-            borderRadius: 14, border: 'none', outline: 'none', display: 'block',
-            background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.04)',
-            fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
-            colorScheme: dark ? 'dark' : 'light',
-            marginBottom: 20 }}/>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
+            style={{ flex: 1, minWidth: 0, height: 44, padding: '0 14px',
+              borderRadius: 12, border: 'none', outline: 'none',
+              background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.04)',
+              fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
+              colorScheme: dark ? 'dark' : 'light' }}/>
+          {dateVisited && (
+            <button onClick={() => setDateVisited('')} style={{
+              width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer', flexShrink: 0,
+              background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)',
+            }}>
+              <MinkoIcon name="close" size={14} strokeWidth={2.5}/>
+            </button>
+          )}
+        </div>
 
         {/* Links */}
         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Links</div>
@@ -1152,26 +1163,40 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             </div>
           )}
 
-          {/* Rating */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
-              How was it? <span style={{ color: accent }}>·</span>
+          {/* Rating + Date — side by side */}
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+            {/* Rating */}
+            <div style={{ flex: '0 0 auto' }}>
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
+                Rating
+              </div>
+              <HalfStarPicker rating={rating} onChange={setRating} size={28} dark={dark}/>
             </div>
-            <HalfStarPicker rating={rating} onChange={setRating} size={32} dark={dark}/>
-          </div>
-
-          {/* Date visited (optional) */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
-              Date visited <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· optional</span>
+            {/* Date visited */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
+                Date <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>· optional</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
+                  style={{
+                    flex: 1, minWidth: 0, height: 38, padding: '0 10px', borderRadius: 10, border: 'none', outline: 'none',
+                    background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+                    fontFamily: SANS, fontSize: 13, color: dark ? '#f5f1e8' : '#1a1a2e',
+                    colorScheme: dark ? 'dark' : 'light',
+                  }}/>
+                {dateVisited && (
+                  <button onClick={() => setDateVisited('')} style={{
+                    width: 26, height: 26, borderRadius: '50%', border: 0, cursor: 'pointer', flexShrink: 0,
+                    background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)',
+                  }}>
+                    <MinkoIcon name="close" size={12} strokeWidth={2.5}/>
+                  </button>
+                )}
+              </div>
             </div>
-            <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
-              style={{
-                height: 44, padding: '0 14px', borderRadius: 12, border: 'none', outline: 'none',
-                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
-                fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
-                colorScheme: dark ? 'dark' : 'light',
-              }}/>
           </div>
 
           {/* Photos */}
@@ -1487,7 +1512,7 @@ function SlideOverlay({ open, onBack, dark, title, children }) {
   const bg = dark ? '#13141b' : '#faf8f3';
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 60,
+      position: 'absolute', inset: 0, zIndex: 160,
       background: bg,
       transform: open ? 'translateX(0)' : 'translateX(100%)',
       transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
@@ -1619,7 +1644,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
 // SHARED FRIEND PROFILE PAGE
 // Used from both ProfileScreen (friends list) and FriendsScreen (search/friend rows)
 // ─────────────────────────────────────────────────────────────
-function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack, onFriendshipChanged, zIndex = 80 }) {
+function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack, onFriendshipChanged, zIndex = 160 }) {
   const [pEntries, setPEntries] = useState2([]);
   const [friendsCount, setFriendsCount] = useState2(null);
   const [loading, setLoading] = useState2(true);
@@ -2067,7 +2092,7 @@ function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
   );
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 75, background: dark ? '#13141b' : '#faf8f3',
+    <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: dark ? '#13141b' : '#faf8f3',
       display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
 
       {/* Top bar */}
@@ -2399,7 +2424,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
 
       {/* Reviews list overlay */}
       {showReviews && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
           <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <button onClick={() => setShowReviews(false)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -2442,7 +2467,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
 
       {/* Friends list overlay */}
       {showFriendsList && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 70, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
           <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <button onClick={() => setShowFriendsList(false)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>

@@ -734,19 +734,26 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
 
       {/* Photo gallery */}
       {photos.length === 1 && (
-        <button onClick={() => openLightbox(0)} style={{ display: 'block', width: 'calc(100% - 32px)', height: 200, margin: '4px 16px 0', borderRadius: 16, overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer' }}>
-          <img src={photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+        <button onClick={() => openLightbox(0)} style={{ display: 'block', width: 'calc(100% - 40px)', height: 200, margin: '4px 20px 0', borderRadius: 16, overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer',
+          background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+          <img src={photos[0]} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
         </button>
       )}
       {photos.length > 1 && (
-        <div style={{ margin: '4px 0 0', overflowX: 'auto', display: 'flex', gap: 8,
-          padding: '0 16px', scrollSnapType: 'x mandatory', paddingBottom: 2 }}>
+        <div style={{ margin: '4px 0 0 0', overflowX: 'auto', display: 'flex', gap: 8,
+          scrollSnapType: 'x mandatory', paddingBottom: 2,
+          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+          {/* Left spacer — reliable padding on iOS Safari overflow containers */}
+          <div style={{ flexShrink: 0, width: 20 }}/>
           {photos.map((url, i) => (
             <button key={i} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
-              overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer' }}>
-              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer',
+              background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+              <img src={url} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
             </button>
           ))}
+          {/* Right spacer */}
+          <div style={{ flexShrink: 0, width: 12 }}/>
         </div>
       )}
       <div style={{ padding: '18px 20px 0' }}>

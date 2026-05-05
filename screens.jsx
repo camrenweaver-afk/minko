@@ -144,7 +144,8 @@ const GlassSurface = ({ children, style, dark, radius = 999 }) => (
 // ─────────────────────────────────────────────────────────────
 // Bottom nav (always present, floats over map)
 // ─────────────────────────────────────────────────────────────
-function BottomNav({ active, onChange, accent, dark, onLog }) {
+function BottomNav({ active, onChange, accent, dark, onLog, hideNav = false }) {
+  if (hideNav) return null;
   const items = [
     { id: 'home', icon: 'globe', label: 'World' },
     { id: 'friends', icon: 'friends', label: 'Friends' },

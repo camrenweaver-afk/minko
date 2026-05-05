@@ -1040,6 +1040,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   // pendingFiles holds {file, preview} objects — photos are NOT uploaded until submit
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
+  const [dateVisited, setDateVisited] = useState2('');
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
 
@@ -1125,6 +1126,20 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
               How was it? <span style={{ color: accent }}>·</span>
             </div>
             <HalfStarPicker rating={rating} onChange={setRating} size={32} dark={dark}/>
+          </div>
+
+          {/* Date visited (optional) */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
+              Date visited <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· optional</span>
+            </div>
+            <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
+              style={{
+                height: 44, padding: '0 14px', borderRadius: 12, border: 'none', outline: 'none',
+                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+                fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
+                colorScheme: dark ? 'dark' : 'light',
+              }}/>
           </div>
 
           {/* Photos */}
@@ -1238,7 +1253,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                 location: place.sub || null,
                 lon: place.lon || null,
                 lat: place.lat || null,
-                date_visited: new Date().toISOString().split('T')[0],
+                date_visited: dateVisited || null,
                 links: links.length ? links : [],
                 photos: [],
               }).select('id').single();

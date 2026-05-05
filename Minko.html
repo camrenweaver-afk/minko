@@ -44,10 +44,10 @@
 <script type="text/babel" src="ios-frame.jsx?v=6"></script>
 <script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
 <script type="text/babel" src="data.jsx?v=5"></script>
-<script type="text/babel" src="icons.jsx?v=6"></script>
+<script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=15"></script>
-<script type="text/babel" src="screens.jsx?v=22"></script>
-<script type="text/babel" src="flows.jsx?v=49"></script>
+<script type="text/babel" src="screens.jsx?v=23"></script>
+<script type="text/babel" src="flows.jsx?v=50"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -97,6 +97,7 @@ function App() {
   const [friendEntries, setFriendEntries] = useState([]);
   const [friendsRefreshKey, setFriendsRefreshKey] = useState(0);
   const [showFriendProfile, setShowFriendProfile] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -191,7 +192,7 @@ function App() {
   const navProps = {
     active: screen,
     onChange: (s) => { setScreen(s); resetSheets(); },
-    hideNav: !user || showLogPicker || showLocationPicker || showLog || showEdit || showDetail || showWishlistAdd || showAddPhoto || showDeleteConfirm || showFriendProfile,
+    hideNav: !user || showLogPicker || showLocationPicker || showLog || showEdit || showDetail || showWishlistAdd || showAddPhoto || showDeleteConfirm || showFriendProfile || showNotifications,
   };
 
   const activeEntry = entries.find(e => e.id === activePin);
@@ -240,6 +241,7 @@ function App() {
               user={user}
               onLogReview={onSearchLogReview}
               onSaveWishlist={onSearchSaveWishlist}
+              onNotifications={() => setShowNotifications(true)}
             />
           )}
 
@@ -400,6 +402,15 @@ function App() {
               onBack={() => setShowFriendProfile(false)}
               onFriendshipChanged={() => setFriendsRefreshKey(k => k + 1)}
               zIndex={120}
+            />
+          )}
+
+          {/* Notifications page */}
+          {showNotifications && (
+            <NotificationsPage
+              dark={dark} accent={accent}
+              user={user}
+              onBack={() => setShowNotifications(false)}
             />
           )}
 

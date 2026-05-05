@@ -2748,6 +2748,216 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS PAGE
+// ─────────────────────────────────────────────────────────────
+function NotificationsPage({ dark, accent, user, onBack }) {
+  const [items, setItems] = useState2([]);
+  const [loading, setLoading] = useState2(true);
+  const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif';
+
+  useEffect2(() => {
+    if (!user?.id) { setLoading(false); return; }
+    (async () => {
+      setLoading(true);
+      try {
+        // 1. Get user's own entries (id + name)
+        const { data: userEntries } = await window.sb
+          .from('entries')
+          .select('id, name')
+          .eq('user_id', user.id);
+
+        if (!userEntries?.length) { setItems([]); setLoading(false); return; }
+
+        const entryIds = userEntries.map(e => e.id);
+        const entryNameMap = Object.fromEntries(userEntries.map(e => [e.id, e.name]));
+
+        // 2. Fetch likes on those entries (exclude own likes)
+        const { data: likes } = await window.sb
+          .from('entry_likes')
+          .select('user_id, entry_id, created_at, profiles(display_name, avatar_url)')
+          .in('entry_id', entryIds)
+          .neq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        // 3. Fetch comments on those entries (exclude own comments)
+        const { data: comments } = await window.sb
+          .from('entry_comments')
+          .select('id, body, user_id, entry_id, created_at, profiles(display_name, avatar_url)')
+          .in('entry_id', entryIds)
+          .neq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        const likeItems = (likes || []).map(l => ({
+          key: `like-${l.user_id}-${l.entry_id}`,
+          type: 'like',
+          name: l.profiles?.display_name || 'Someone',
+          avatar: l.profiles?.avatar_url || null,
+          placeName: entryNameMap[l.entry_id] || 'your review',
+          created_at: l.created_at,
+        }));
+
+        const commentItems = (comments || []).map(c => ({
+          key: `comment-${c.id}`,
+          type: 'comment',
+          name: c.profiles?.display_name || 'Someone',
+          avatar: c.profiles?.avatar_url || null,
+          placeName: entryNameMap[c.entry_id] || 'your review',
+          body: c.body,
+          created_at: c.created_at,
+        }));
+
+        const merged = [...likeItems, ...commentItems]
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        setItems(merged);
+      } catch (e) {
+        console.error('notifications fetch error', e);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user?.id]);
+
+  function relTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `${d}d ago`;
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  const bg   = dark ? '#0e1018'              : '#f5f3ef';
+  const card = dark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+  const text = dark ? '#f0ede6'              : '#1a1a2e';
+  const sub  = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,50,0.45)';
+  const div  = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 200,
+      background: bg, display: 'flex', flexDirection: 'column',
+      fontFamily: SANS,
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '52px 20px 16px',
+        borderBottom: `1px solid ${div}`,
+      }}>
+        <button
+          onClick={onBack}
+          style={{
+            width: 36, height: 36, borderRadius: 12, border: 0, cursor: 'pointer',
+            background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: text, flexShrink: 0,
+          }}
+        >
+          <MinkoIcon name="chevron-right" size={18} strokeWidth={2} color={text}
+            style={{ transform: 'rotate(180deg)' }}
+          />
+        </button>
+        <span style={{ fontSize: 18, fontWeight: 700, color: text, letterSpacing: -0.4 }}>
+          Notifications
+        </span>
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: sub, fontSize: 14 }}>
+            Loading…
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 24px 0', color: sub }}>
+            <MinkoIcon name="bell" size={36} color={sub} strokeWidth={1.4}/>
+            <div style={{ marginTop: 16, fontSize: 15, fontWeight: 600, color: text }}>No notifications yet</div>
+            <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+              When friends like or comment on your reviews, you'll see it here.
+            </div>
+          </div>
+        ) : (
+          items.map((item, idx) => (
+            <div key={item.key} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '14px 0',
+              borderBottom: idx < items.length - 1 ? `1px solid ${div}` : 'none',
+            }}>
+              {/* Avatar */}
+              <div style={{
+                width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                background: item.avatar ? 'transparent' : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,30,60,0.12)'),
+                overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {item.avatar
+                  ? <img src={item.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                  : <MinkoIcon name="user" size={20} color={sub} strokeWidth={1.6}/>
+                }
+              </div>
+
+              {/* Text */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, lineHeight: 1.45, color: text }}>
+                  {item.type === 'like' ? (
+                    <>
+                      <span style={{ fontWeight: 700 }}>{item.name}</span>
+                      {' liked your review of '}
+                      <span style={{ fontWeight: 600 }}>{item.placeName}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: 700 }}>{item.name}</span>
+                      {' commented on '}
+                      <span style={{ fontWeight: 600 }}>{item.placeName}</span>
+                      {item.body ? (
+                        <div style={{
+                          marginTop: 5, fontSize: 13, color: sub, lineHeight: 1.4,
+                          background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                          borderRadius: 8, padding: '6px 10px',
+                          fontStyle: 'italic',
+                        }}>
+                          "{item.body}"
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 12, color: sub }}>{relTime(item.created_at)}</div>
+              </div>
+
+              {/* Icon badge */}
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: item.type === 'like'
+                  ? (dark ? 'rgba(220,80,80,0.18)' : 'rgba(220,80,80,0.1)')
+                  : (dark ? 'rgba(79,91,213,0.25)' : 'rgba(79,91,213,0.12)'),
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <MinkoIcon
+                  name={item.type === 'like' ? 'heart-filled' : 'comment'}
+                  size={14}
+                  color={item.type === 'like' ? '#e05555' : accent}
+                  strokeWidth={1.6}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+window.NotificationsPage = NotificationsPage;
 window.ActionPickerSheet = ActionPickerSheet;
 window.SaveToWishlistFlow = SaveToWishlistFlow;
 window.LogEntryFlow = LogEntryFlow;

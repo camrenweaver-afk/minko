@@ -287,7 +287,7 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 // ─────────────────────────────────────────────────────────────
 // Top search bar (floats over map) — full Mapbox search + place card
 // ─────────────────────────────────────────────────────────────
-function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist }) {
+function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist, onNotifications }) {
   const [active, setActive]         = useState(false);
   const [query, setQuery]           = useState('');
   const [results, setResults]       = useState([]);
@@ -398,10 +398,18 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
             </>
           )}
 
-          {!active
-            ? <Avatar name={user?.user_metadata?.full_name || 'You'} color="#7a6ca3" size={32} src={user?.user_metadata?.avatar_url}/>
-            : <button onClick={dismiss} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '4px 6px', fontFamily: SANS, fontSize: 14, fontWeight: 600, color: accent, flexShrink: 0 }}>Cancel</button>
-          }
+          {!active ? (
+            <button onClick={onNotifications} style={{
+              width: 36, height: 36, borderRadius: 12, border: 0, cursor: 'pointer', flexShrink: 0,
+              background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: dark ? 'rgba(255,255,255,0.75)' : 'rgba(20,20,30,0.65)',
+            }}>
+              <MinkoIcon name="bell" size={18} strokeWidth={1.8}/>
+            </button>
+          ) : (
+            <button onClick={dismiss} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '4px 6px', fontFamily: SANS, fontSize: 14, fontWeight: 600, color: accent, flexShrink: 0 }}>Cancel</button>
+          )}
         </GlassSurface>
 
         {/* Results dropdown */}
@@ -531,7 +539,7 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist }) {
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist, onNotifications }) {
   const cat = window.MINKO_CATEGORY_COLORS;
   const pins = entries.filter(e => e.lon && e.lat).map(e => ({
     id: e.id, lon: e.lon, lat: e.lat,
@@ -547,7 +555,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         fitToPins={pins.length > 0}
       />
       <SafeTopBar dark={dark}/>
-      <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist}/>
+      <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications}/>
       <CategoryLegend dark={dark}/>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>

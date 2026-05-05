@@ -131,6 +131,7 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
   const [dateVisited, setDateVisited] = useState2(entry?.date_visited || '');
   const [links, setLinks] = useState2(Array.isArray(entry?.links) ? [...entry.links] : []);
   const [linkInput, setLinkInput] = useState2('');
+  const [isPrivate, setIsPrivate] = useState2(entry?.is_private || false);
   const [saving, setSaving] = useState2(false);
 
   const isWishlist = tableKind === 'wishlist';
@@ -150,15 +151,17 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await window.sb.from(tableKind).update({
+    const patch = {
       category,
       rating: rating || null,
       note: note || null,
       date_visited: dateVisited || null,
       links,
-    }).eq('id', entry.id);
+    };
+    if (!isWishlist) patch.is_private = isPrivate;
+    await window.sb.from(tableKind).update(patch).eq('id', entry.id);
     setSaving(false);
-    onConfirm({ category, rating: rating || null, note: note || null, date_visited: dateVisited || null, links });
+    onConfirm({ ...patch });
   };
 
   return (
@@ -261,6 +264,34 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
           <button onClick={addLink} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: 0, cursor: 'pointer',
             background: accent, color: 'white', fontFamily: SANS, fontSize: 14, fontWeight: 600 }}>Add</button>
         </div>
+
+        {/* Privacy toggle — entries only */}
+        {!isWishlist && (
+          <button onClick={() => setIsPrivate(p => !p)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+            borderRadius: 14, border: `1px solid ${isPrivate ? accent + '55' : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)')}`,
+            background: isPrivate ? (dark ? `${accent}18` : `${accent}0c`) : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(20,30,60,0.02)'),
+            cursor: 'pointer', textAlign: 'left', marginBottom: 20, transition: 'all 0.18s',
+          }}>
+            <MinkoIcon name="lock" size={18} color={isPrivate ? accent : (dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)')} strokeWidth={1.8}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Private entry</div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>Only visible to you</div>
+            </div>
+            {/* Toggle pill */}
+            <div style={{
+              width: 44, height: 26, borderRadius: 999, flexShrink: 0,
+              background: isPrivate ? accent : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(20,30,60,0.15)'),
+              position: 'relative', transition: 'background 0.2s',
+            }}>
+              <div style={{
+                position: 'absolute', top: 3, left: isPrivate ? 21 : 3,
+                width: 20, height: 20, borderRadius: '50%', background: 'white',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+              }}/>
+            </div>
+          </button>
+        )}
 
         <button onClick={handleSave} disabled={saving} style={{
           width: '100%', height: 50, borderRadius: 14, border: 0, cursor: saving ? 'default' : 'pointer',
@@ -1041,6 +1072,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
   const [dateVisited, setDateVisited] = useState2('');
+  const [isPrivate, setIsPrivate] = useState2(false);
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
 
@@ -1223,6 +1255,31 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                   background: accent, color: 'white', fontFamily: SANS, fontSize: 14, fontWeight: 600 }}>Add</button>
             </div>
           </div>
+
+          {/* Privacy toggle */}
+          <button onClick={() => setIsPrivate(p => !p)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+            borderRadius: 14, border: `1px solid ${isPrivate ? accent + '55' : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)')}`,
+            background: isPrivate ? (dark ? `${accent}18` : `${accent}0c`) : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(20,30,60,0.02)'),
+            cursor: 'pointer', textAlign: 'left', marginBottom: 4, transition: 'all 0.18s',
+          }}>
+            <MinkoIcon name="lock" size={18} color={isPrivate ? accent : (dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)')} strokeWidth={1.8}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Private entry</div>
+              <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>Only visible to you</div>
+            </div>
+            <div style={{
+              width: 44, height: 26, borderRadius: 999, flexShrink: 0,
+              background: isPrivate ? accent : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(20,30,60,0.15)'),
+              position: 'relative', transition: 'background 0.2s',
+            }}>
+              <div style={{
+                position: 'absolute', top: 3, left: isPrivate ? 21 : 3,
+                width: 20, height: 20, borderRadius: '50%', background: 'white',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+              }}/>
+            </div>
+          </button>
         </div>
       )}
 
@@ -1256,6 +1313,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                 date_visited: dateVisited || null,
                 links: links.length ? links : [],
                 photos: [],
+                is_private: isPrivate,
               }).select('id').single();
 
               if (insertErr) { console.error('insert error', insertErr); onConfirm(); return; }
@@ -1585,7 +1643,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
     setFriendshipId(null);
     setOptimistic(false);
     Promise.all([
-      window.sb.from('entries').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      window.sb.from('entries').select('*').eq('user_id', profile.id).neq('is_private', true).order('created_at', { ascending: false }),
       window.sb.from('friendships').select('id', { count: 'exact', head: true })
         .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`)
         .eq('status', 'accepted'),
@@ -2315,8 +2373,11 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               </div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{e.place}</div>
+                {e.is_private && <MinkoIcon name="lock" size={13} color={dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)'} strokeWidth={2}/>}
+              </div>
               <div style={{ margin: '5px 0 3px' }}>
                 <Stars n={e.rating} size={28}/>
               </div>
@@ -2362,7 +2423,10 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
                   </div>
                 )}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
-                  <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || 'Unnamed place'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{e.place || 'Unnamed place'}</div>
+                    {e.is_private && <MinkoIcon name="lock" size={12} color={mutedC} strokeWidth={2}/>}
+                  </div>
                   <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {e.rating > 0 && <Stars n={e.rating} size={12} color="#c89e54"/>}
@@ -2508,7 +2572,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           if (f.requester) profileMap[f.requester_id] = f.requester;
           if (f.addressee) profileMap[f.addressee_id] = f.addressee;
         });
-        const { data: entries } = await window.sb.from('entries').select('*').in('user_id', friendIds);
+        const { data: entries } = await window.sb.from('entries').select('*').in('user_id', friendIds).neq('is_private', true);
         onFriendEntriesChange?.((entries || []).map(e => normalizeFriendEntry(e, profileMap[e.user_id])));
       } else {
         onFriendEntriesChange?.([]);

@@ -565,7 +565,19 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
             {onFriendProfile && <MinkoIcon name="chevron-right" size={14} color={dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)'} strokeWidth={2}/>}
           </button>
         )}
-        <CategoryChip category={entry.category} dark={dark}/>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <CategoryChip category={entry.category} dark={dark}/>
+          {entry.is_private && !friendMode && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', borderRadius: 999,
+              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)',
+            }}>
+              <MinkoIcon name="lock" size={11} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)'} strokeWidth={2}/>
+              <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>Private</span>
+            </div>
+          )}
+        </div>
         <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: '4px 0 6px',
           color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{entry.place}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

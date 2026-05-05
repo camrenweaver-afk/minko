@@ -191,6 +191,54 @@ function BottomNav({ active, onChange, accent, dark, onLog, hideNav = false }) {
 // Bottom sheet wrapper
 // ─────────────────────────────────────────────────────────────
 function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag = false }) {
+  const [dragY, setDragY]       = React.useState(0);
+  const [animate, setAnimate]   = React.useState(true);
+  const isDraggingRef            = React.useRef(false);
+  const startYRef                = React.useRef(0);
+  const startTimeRef             = React.useRef(0);
+  const dragYRef                 = React.useRef(0);
+  const scrollElRef              = React.useRef(null);
+
+  // Reset when sheet closes
+  React.useEffect(() => {
+    if (!open) { dragYRef.current = 0; setDragY(0); setAnimate(true); }
+  }, [open]);
+
+  const onDragStart = (clientY) => {
+    startYRef.current   = clientY;
+    startTimeRef.current = Date.now();
+    isDraggingRef.current = true;
+    setAnimate(false);
+  };
+
+  const onDragMove = (clientY) => {
+    if (!isDraggingRef.current) return;
+    // If dragging from content area, only initiate when content is scrolled to top
+    const scrollTop = scrollElRef.current?.scrollTop ?? 0;
+    if (fullDrag && scrollTop > 0) { isDraggingRef.current = false; setAnimate(true); return; }
+    const delta = clientY - startYRef.current;
+    if (delta > 0) { dragYRef.current = delta; setDragY(delta); }
+  };
+
+  const onDragEnd = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    const elapsed  = Math.max(Date.now() - startTimeRef.current, 1);
+    const velocity = dragYRef.current / elapsed; // px/ms
+    const dismiss  = dragYRef.current > 100 || velocity > 0.4;
+    dragYRef.current = 0;
+    setDragY(0);
+    setAnimate(true);
+    if (dismiss) onClose();
+  };
+
+  const handleTouchStart = (e) => onDragStart(e.touches[0].clientY);
+  const handleTouchMove  = (e) => onDragMove(e.touches[0].clientY);
+  const handleTouchEnd   = ()  => onDragEnd();
+
+  const transform  = !open ? 'translateY(110%)' : `translateY(${dragY}px)`;
+  const transition = animate ? 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+
   return (
     <>
       {open && (
@@ -205,15 +253,26 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
         background: dark ? '#1c1d28' : '#faf8f3',
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
         boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',
-        transform: open ? 'translateY(0)' : 'translateY(110%)',
-        transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+        transform, transition,
         maxHeight: '85%', overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+        {/* Drag handle — primary swipe-down target */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', cursor: 'grab', flexShrink: 0 }}
+        >
           <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
         </div>
-        <div style={{ overflow: 'auto', flex: 1 }}>{children}</div>
+        <div
+          ref={scrollElRef}
+          onTouchStart={fullDrag ? handleTouchStart : undefined}
+          onTouchMove={fullDrag ? handleTouchMove : undefined}
+          onTouchEnd={fullDrag ? handleTouchEnd : undefined}
+          style={{ overflow: 'auto', flex: 1 }}
+        >{children}</div>
       </div>
     </>
   );

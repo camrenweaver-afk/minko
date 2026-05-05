@@ -1562,11 +1562,14 @@ function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
   const [phone, setPhone] = useState2('');
   const [homeCities, setHomeCities] = useState2([]);
   const [cityInput, setCityInput] = useState2('');
+  const [citySuggestions, setCitySuggestions] = useState2([]);
+  const [citySearching, setCitySearching] = useState2(false);
   const [localAvatar, setLocalAvatar] = useState2(user?.user_metadata?.avatar_url || null);
   const [avatarUploading, setAvatarUploading] = useState2(false);
   const [saving, setSaving] = useState2(false);
   const [emailNote, setEmailNote] = useState2('');
   const avatarRef = useRef2(null);
+  const cityTimer = useRef2(null);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -1617,11 +1620,35 @@ function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
     e.target.value = '';
   };
 
-  const addCity = () => {
-    const v = cityInput.trim();
-    if (!v || homeCities.includes(v)) { setCityInput(''); return; }
+  const addCity = (name) => {
+    const v = (name || cityInput).trim();
+    if (!v || homeCities.includes(v)) { setCityInput(''); setCitySuggestions([]); return; }
     setHomeCities(p => [...p, v]);
     setCityInput('');
+    setCitySuggestions([]);
+  };
+
+  const handleCityInput = (val) => {
+    setCityInput(val);
+    clearTimeout(cityTimer.current);
+    if (val.trim().length < 2) { setCitySuggestions([]); return; }
+    setCitySearching(true);
+    cityTimer.current = setTimeout(async () => {
+      try {
+        const token = window.MAPBOX_TOKEN;
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val.trim())}.json` +
+          `?types=place&language=en&limit=6&access_token=${token}`
+        );
+        const json = await res.json();
+        setCitySuggestions((json.features || []).map(f => ({
+          id: f.id,
+          name: f.text,
+          full: f.place_name,
+        })));
+      } catch(e) { setCitySuggestions([]); }
+      setCitySearching(false);
+    }, 280);
   };
 
   const handleSave = async () => {
@@ -1739,30 +1766,63 @@ function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
 
         {/* Home cities */}
         <SectionLabel>Home {homeCities.length === 1 ? 'City' : 'Cities'}</SectionLabel>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: homeCities.length ? 10 : 0 }}>
-          {homeCities.map((c, i) => (
-            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '6px 10px 6px 12px', borderRadius: 999,
-              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)',
-              border: dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(20,20,30,0.1)' }}>
-              <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 500, color: labelC }}>{c}</span>
-              <button onClick={() => setHomeCities(p => p.filter((_, j) => j !== i))}
-                style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, lineHeight: 0,
-                  color: mutedC, display: 'flex', alignItems: 'center' }}>
-                <MinkoIcon name="close" size={12} strokeWidth={2.4}/>
-              </button>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input value={cityInput} onChange={e => setCityInput(e.target.value)}
+        {/* Chips */}
+        {homeCities.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {homeCities.map((c, i) => (
+              <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '6px 10px 6px 12px', borderRadius: 999,
+                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,30,0.07)',
+                border: dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(20,20,30,0.1)' }}>
+                <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 500, color: labelC }}>{c}</span>
+                <button onClick={() => setHomeCities(p => p.filter((_, j) => j !== i))}
+                  style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, lineHeight: 0,
+                    color: mutedC, display: 'flex', alignItems: 'center' }}>
+                  <MinkoIcon name="close" size={12} strokeWidth={2.4}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Search input + dropdown */}
+        <div style={{ position: 'relative' }}>
+          <input
+            value={cityInput}
+            onChange={e => handleCityInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }}
-            placeholder="Add a city…" style={{ ...fieldStyle, flex: 1 }}/>
-          <button onClick={addCity} style={{
-            height: 46, padding: '0 16px', borderRadius: 12, border: 0, cursor: 'pointer',
-            background: accent, color: 'white', fontFamily: SANS, fontSize: 14, fontWeight: 600,
-            flexShrink: 0, opacity: cityInput.trim() ? 1 : 0.45,
-          }}>Add</button>
+            placeholder="Search for a city…"
+            style={{ ...fieldStyle, paddingRight: citySearching ? 40 : 14 }}
+          />
+          {citySearching && (
+            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+              width: 16, height: 16, borderRadius: '50%',
+              border: `2px solid ${accent}`, borderTopColor: 'transparent',
+              animation: 'spin 0.7s linear infinite' }}/>
+          )}
+          {citySuggestions.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+              marginTop: 4, borderRadius: 12, overflow: 'hidden',
+              background: dark ? '#22253a' : '#ffffff',
+              boxShadow: dark
+                ? '0 8px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.07)'
+                : '0 8px 24px rgba(20,30,60,0.14), 0 0 0 1px rgba(20,30,60,0.07)',
+            }}>
+              {citySuggestions.map((s, i) => (
+                <button key={s.id} onMouseDown={e => { e.preventDefault(); addCity(s.name); }}
+                  style={{
+                    width: '100%', display: 'flex', flexDirection: 'column', gap: 1,
+                    padding: '11px 14px', border: 0, background: 'none', cursor: 'pointer', textAlign: 'left',
+                    borderBottom: i < citySuggestions.length - 1
+                      ? `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.06)'}` : 'none',
+                  }}>
+                  <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelC }}>{s.name}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.full}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Sign out */}

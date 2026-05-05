@@ -1,0 +1,17 @@
+{
+  "name": "Minko",
+  "short_name": "Minko",
+  "description": "Your personal travel journal",
+  "start_url": "/Minko.html",
+  "display": "standalone",
+  "background_color": "#cfe1ee",
+  "theme_color": "#cfe1ee",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

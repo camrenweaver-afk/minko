@@ -740,20 +740,20 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
         </button>
       )}
       {photos.length > 1 && (
-        <div style={{ margin: '4px 0 0 0', overflowX: 'auto', display: 'flex', gap: 8,
-          scrollSnapType: 'x mandatory', paddingBottom: 2,
-          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-          {/* Left spacer — reliable padding on iOS Safari overflow containers */}
-          <div style={{ flexShrink: 0, width: 20 }}/>
-          {photos.map((url, i) => (
-            <button key={i} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
-              overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer',
-              background: dark ? '#2a2c3a' : '#e8e4dc' }}>
-              <img src={url} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-            </button>
-          ))}
-          {/* Right spacer */}
-          <div style={{ flexShrink: 0, width: 12 }}/>
+        /* Outer div scrolls; inner div is exactly content-wide so padding sticks on iOS Safari */
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none', margin: '4px 0 0 0', paddingBottom: 2 }}>
+          <div style={{ display: 'inline-flex', gap: 8,
+            paddingLeft: 20, paddingRight: 20,
+            scrollSnapType: 'x mandatory' }}>
+            {photos.map((url, i) => (
+              <button key={i} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+                overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer',
+                background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+                <img src={url} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              </button>
+            ))}
+          </div>
         </div>
       )}
       <div style={{ padding: '18px 20px 0' }}>

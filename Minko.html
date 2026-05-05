@@ -290,7 +290,7 @@ function App() {
             <LocationPickerScreen
               dark={dark}
               accent={accent}
-              onConfirm={(place) => { setLogPickerPlace(place); setShowLocationPicker(false); setShowLog(true); }}
+              onConfirm={(place) => { setLogPickerPlace(place); setLogKey(k => k + 1); setShowLocationPicker(false); setShowLog(true); }}
               onCancel={() => setShowLocationPicker(false)}
             />
           )}

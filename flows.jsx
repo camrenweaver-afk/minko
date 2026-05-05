@@ -1373,6 +1373,11 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const [friendshipId, setFriendshipId] = useState2(null);
   const [optimistic, setOptimistic] = useState2(false);
   const [viewingEntry, setViewingEntry] = useState2(null);
+  const [showReviews, setShowReviews] = useState2(false);
+  const [showFriendsList, setShowFriendsList] = useState2(false);
+  const [profileFriends, setProfileFriends] = useState2([]);
+  const [friendsListLoading, setFriendsListLoading] = useState2(false);
+  const [viewingSubFriend, setViewingSubFriend] = useState2(null);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -1431,6 +1436,18 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
     onBack();
   };
 
+  const openFriendsList = async () => {
+    setShowFriendsList(true);
+    if (profileFriends.length > 0 || friendsListLoading) return;
+    setFriendsListLoading(true);
+    const { data } = await window.sb.from('friendships')
+      .select('id, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
+      .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`)
+      .eq('status', 'accepted');
+    setProfileFriends(data || []);
+    setFriendsListLoading(false);
+  };
+
   const pAvgRating = pEntries.length > 0
     ? (pEntries.reduce((s, e) => s + (e.rating || 0), 0) / pEntries.length).toFixed(1)
     : '—';
@@ -1457,16 +1474,17 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
           </div>
 
           {[
-            { value: loading ? '…' : pEntries.length, label: pEntries.length === 1 ? 'review' : 'reviews' },
-            { value: loading ? '…' : (friendsCount ?? '…'), label: friendsCount === 1 ? 'friend' : 'friends' },
-          ].map(({ value, label }) => (
-            <div key={label} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8,
+            { value: loading ? '…' : pEntries.length, label: pEntries.length === 1 ? 'review' : 'reviews', onClick: () => setShowReviews(true) },
+            { value: loading ? '…' : (friendsCount ?? '…'), label: friendsCount === 1 ? 'friend' : 'friends', onClick: openFriendsList },
+          ].map(({ value, label, onClick }) => (
+            <button key={label} onClick={onClick} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8, border: 0,
+              cursor: 'pointer', textAlign: 'left',
               background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.75)',
               outline: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
               display: 'flex', flexDirection: 'column', gap: 1 }}>
               <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, lineHeight: 1.1, color: labelC }}>{value}</div>
               <div style={{ fontFamily: SANS, fontSize: 10, color: mutedC, letterSpacing: 0.1 }}>{label}</div>
-            </div>
+            </button>
           ))}
 
           {currentUserId && (isFriend
@@ -1532,7 +1550,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
 
       {/* Inline entry detail — slides up over the profile page */}
       {viewingEntry && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: zIndex + 1, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
           <div onClick={() => setViewingEntry(null)} style={{ flex: 1, background: 'rgba(15,20,40,0.25)', backdropFilter: 'blur(2px)' }}/>
           <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '85%', overflow: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
@@ -1547,6 +1565,107 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
             />
           </div>
         </div>
+      )}
+
+      {/* Reviews overlay */}
+      {showReviews && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 6, background: dark ? '#0e1018' : '#f4f1eb',
+          display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))',
+            display: 'flex', alignItems: 'center', gap: 4, padding: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px)) 8px 0',
+            flexShrink: 0 }}>
+            <button onClick={() => setShowReviews(false)} style={{ border: 0, background: 'none', cursor: 'pointer',
+              padding: '10px 12px', color: accent, display: 'flex', alignItems: 'center' }}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>
+              {profile.display_name?.split(' ')[0] || 'Their'}'s Reviews
+            </span>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC, paddingRight: 16 }}>{pEntries.length} total</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px',
+            paddingBottom: 'max(100px, calc(env(safe-area-inset-bottom) + 90px))' }}>
+            {pTopRated.map(e => (
+              <button key={e.id} onClick={() => { setShowReviews(false); setViewingEntry(e); }}
+                style={{ width: '100%', display: 'flex', gap: 12, padding: 12, borderRadius: 14,
+                  background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+                  border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
+                  cursor: 'pointer', textAlign: 'left', marginBottom: 8 }}>
+                {e.photos?.[0] ? (
+                  <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
+                ) : (
+                  <div style={{ width: 60, height: 60, borderRadius: 10, flexShrink: 0,
+                    background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MinkoIcon name={e.category} size={22} color={accent} strokeWidth={1.4}/>
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, color: labelC,
+                    letterSpacing: -0.2, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place}</div>
+                  <div style={{ margin: '4px 0 2px' }}><Stars n={e.rating} size={12}/></div>
+                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: mutedC,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location} · {e.date}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Friends list overlay */}
+      {showFriendsList && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 6, background: dark ? '#0e1018' : '#f4f1eb',
+          display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))',
+            display: 'flex', alignItems: 'center', gap: 4, padding: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px)) 8px 0',
+            flexShrink: 0 }}>
+            <button onClick={() => setShowFriendsList(false)} style={{ border: 0, background: 'none', cursor: 'pointer',
+              padding: '10px 12px', color: accent, display: 'flex', alignItems: 'center' }}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>
+              {profile.display_name?.split(' ')[0] || 'Their'}'s Friends
+            </span>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC, paddingRight: 16 }}>{friendsCount} total</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px',
+            paddingBottom: 'max(100px, calc(env(safe-area-inset-bottom) + 90px))' }}>
+            {friendsListLoading ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>Loading…</div>
+            ) : profileFriends.length === 0 ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No friends yet</div>
+            ) : profileFriends.map((f, i) => {
+              const p = f.requester_id === profile.id ? f.addressee : f.requester;
+              if (!p) return null;
+              return (
+                <button key={f.id} onClick={() => setViewingSubFriend(p)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0',
+                    border: 0, background: 'none', cursor: 'pointer', textAlign: 'left',
+                    borderBottom: i < profileFriends.length - 1
+                      ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
+                  <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={46}/>
+                  <div style={{ flex: 1, fontFamily: SANS, fontSize: 15, fontWeight: 600, color: labelC }}>{p.display_name || 'User'}</div>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={mutedC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sub-friend profile — opened from the friends list */}
+      {viewingSubFriend && (
+        <FriendProfilePage
+          key={viewingSubFriend.id}
+          profile={viewingSubFriend}
+          dark={dark} accent={accent}
+          currentUserId={currentUserId}
+          user={user}
+          onBack={() => setViewingSubFriend(null)}
+          onFriendshipChanged={onFriendshipChanged}
+          zIndex={7}
+        />
       )}
     </div>
   );

@@ -163,7 +163,7 @@ function App() {
   const navProps = {
     active: screen,
     onChange: (s) => { setScreen(s); resetSheets(); },
-    hideNav: showLogPicker || showLocationPicker || showLog || showEdit,
+    hideNav: showLogPicker || showLocationPicker || showLog || showEdit || showDetail || showWishlistAdd || showAddPhoto || showDeleteConfirm || showFriendProfile,
   };
 
   const activeEntry = entries.find(e => e.id === activePin);

@@ -26,6 +26,15 @@ function mapboxCategoryToMinko(categories) {
   return 'experience';
 }
 
+async function reverseGeocode(lon, lat) {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,address,place&limit=1`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json.features?.[0]?.place_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  } catch { return `${lat.toFixed(4)}, ${lon.toFixed(4)}`; }
+}
+
 // ─────────────────────────────────────────────────────────────
 // ADD PHOTO SHEET
 // ─────────────────────────────────────────────────────────────
@@ -559,7 +568,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm }) {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&limit=5`;
+        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
         const res = await fetch(url);
         const json = await res.json();
         setResults((json.suggestions || []).map(s => ({
@@ -742,12 +751,281 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// LOG ENTRY FLOW (3 steps in one bottom sheet)
+// LOCATION PICKER SCREEN — full-screen map + search for step 1
 // ─────────────────────────────────────────────────────────────
-function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
-  const [step, setStep] = useState2(1);
-  const [place, setPlace] = useState2(null);
-  const [category, setCategory] = useState2(null);
+function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
+  const [query, setQuery]                   = useState2('');
+  const [results, setResults]               = useState2([]);
+  const [loading, setLoading]               = useState2(false);
+  const [dropdownOpen, setDropdownOpen]     = useState2(false);
+  const [pinLoc, setPinLoc]                 = useState2(null);   // { lon, lat }
+  const [selectedPlace, setSelectedPlace]   = useState2(null);
+  const [customName, setCustomName]         = useState2('');
+  const [isCustom, setIsCustom]             = useState2(false);
+  const [reverseLoading, setReverseLoading] = useState2(false);
+  const [awaitingPin, setAwaitingPin]       = useState2(false);  // custom row tapped, waiting for map tap
+  const [sessionToken] = useState2(() => 'minko-pick-' + Math.random().toString(36).slice(2));
+  const inputRef = useRef2(null);
+
+  // Search debounce
+  useEffect2(() => {
+    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
+        const res = await fetch(url);
+        const json = await res.json();
+        setResults((json.suggestions || []).map(s => ({
+          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
+          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
+        })));
+      } catch { setResults([]); }
+      setLoading(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const selectSearchResult = async (r) => {
+    if (!window.MAPBOX_TOKEN) return;
+    try {
+      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const feat = json.features?.[0];
+      const lon = feat?.geometry.coordinates[0] ?? null;
+      const lat = feat?.geometry.coordinates[1] ?? null;
+      const place = { ...r, lon, lat, coords: lon != null ? lonLatToCoords(lon, lat) : { x: 50, y: 40 }, isCustom: false };
+      setSelectedPlace(place);
+      setPinLoc(lon != null ? { lon, lat } : null);
+      setIsCustom(false);
+      setAwaitingPin(false);
+      setDropdownOpen(false);
+      setQuery(r.name);
+    } catch {
+      setDropdownOpen(false);
+    }
+  };
+
+  const handleMapTap = async ({ lon, lat }) => {
+    setPinLoc({ lon, lat });
+    setIsCustom(true);
+    setAwaitingPin(false);
+    if (!isCustom || !customName) {
+      setReverseLoading(true);
+      const name = await reverseGeocode(lon, lat);
+      setReverseLoading(false);
+      setCustomName(name);
+      setSelectedPlace({ id: 'custom-' + Date.now(), name, sub: '', lon, lat, coords: lonLatToCoords(lon, lat), poi_categories: [], isCustom: true });
+    } else {
+      setSelectedPlace(prev => prev ? { ...prev, lon, lat, coords: lonLatToCoords(lon, lat) } : { id: 'custom-' + Date.now(), name: customName, sub: '', lon, lat, coords: lonLatToCoords(lon, lat), poi_categories: [], isCustom: true });
+    }
+  };
+
+  const handleCustomRow = () => {
+    const name = query.trim();
+    setCustomName(name);
+    setIsCustom(true);
+    setDropdownOpen(false);
+    setAwaitingPin(true);
+    setSelectedPlace(null);
+    setPinLoc(null);
+  };
+
+  const handleConfirm = () => {
+    if (!selectedPlace) return;
+    const final = isCustom ? { ...selectedPlace, name: customName || selectedPlace.name } : selectedPlace;
+    onConfirm(final);
+  };
+
+  const canConfirm = selectedPlace && (!isCustom || pinLoc);
+
+  const topBarTop = 'calc(env(safe-area-inset-top, 0px) + 14px)';
+
+  const floatBg = dark ? 'rgba(22,24,36,0.88)' : 'rgba(255,255,255,0.92)';
+  const floatShadow = dark
+    ? '0 2px 12px rgba(0,0,0,0.45), inset 0 0.5px 0 rgba(255,255,255,0.08)'
+    : '0 2px 12px rgba(0,0,0,0.12), inset 0 0.5px 0 rgba(255,255,255,0.7)';
+  const textColor = dark ? '#f5f1e8' : '#1a1a2e';
+  const subColor = dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: dark ? '#0d0f1a' : '#eef2f7' }}>
+      {/* Map fills everything */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        <MinkoGlobe
+          dark={dark}
+          accent={accent}
+          scrollable={true}
+          fitToPins={false}
+          pins={pinLoc ? [{ id: 'pick', lon: pinLoc.lon, lat: pinLoc.lat, color: accent }] : []}
+          centerOn={pinLoc ? { lon: pinLoc.lon, lat: pinLoc.lat, zoom: 14 } : null}
+          onMapClick={handleMapTap}
+        />
+      </div>
+
+      {/* Top bar: cancel + search */}
+      <div style={{ position: 'absolute', top: topBarTop, left: 14, right: 14, zIndex: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+        {/* Cancel button */}
+        <button onClick={onCancel} style={{
+          width: 42, height: 42, borderRadius: 13, border: 0, cursor: 'pointer', flexShrink: 0,
+          background: floatBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: floatShadow,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: textColor,
+        }}>
+          <MinkoIcon name="close" size={16} strokeWidth={2}/>
+        </button>
+
+        {/* Search bar */}
+        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center',
+          height: 42, borderRadius: 13,
+          background: floatBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: floatShadow,
+        }}>
+          <div style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <MinkoIcon name="search" size={17} color={subColor} strokeWidth={1.8}/>
+          </div>
+          <input
+            ref={inputRef}
+            placeholder="Search restaurants, stores, hotels…"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setDropdownOpen(true); setSelectedPlace(null); setIsCustom(false); setAwaitingPin(false); setPinLoc(null); }}
+            onFocus={() => { if (query.trim()) setDropdownOpen(true); }}
+            style={{
+              flex: 1, height: '100%', paddingLeft: 38, paddingRight: 14, border: 'none', outline: 'none',
+              background: 'transparent', fontFamily: SANS, fontSize: 15, fontWeight: 500, color: textColor,
+              borderRadius: 13,
+            }}
+          />
+          {query.length > 0 && (
+            <button onClick={() => { setQuery(''); setResults([]); setDropdownOpen(false); setSelectedPlace(null); setIsCustom(false); setAwaitingPin(false); setPinLoc(null); }}
+              style={{ background: 'none', border: 0, cursor: 'pointer', padding: '0 12px', color: subColor, display: 'flex', alignItems: 'center' }}>
+              <MinkoIcon name="close" size={14} strokeWidth={2.2}/>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Dropdown results */}
+      {dropdownOpen && (query.trim()) && (
+        <div style={{
+          position: 'absolute', top: `calc(${topBarTop} + 52px)`, left: 14, right: 14, zIndex: 15,
+          background: floatBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: 16, boxShadow: floatShadow,
+          overflow: 'hidden',
+        }}>
+          {loading && results.length === 0 && (
+            <div style={{ padding: '18px 16px', fontFamily: SANS, fontSize: 13.5, color: subColor, textAlign: 'center' }}>Searching…</div>
+          )}
+          {results.map((r, i) => (
+            <button key={r.id} onMouseDown={(e) => { e.preventDefault(); selectSearchResult(r); }} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
+              background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left',
+              borderBottom: i < results.length - 1 || true ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'}` : 'none',
+            }}>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent }}>
+                <MinkoIcon name="pin" size={15} strokeWidth={1.8}/>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                <div style={{ fontFamily: SANS, fontSize: 12, color: subColor, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sub}</div>
+              </div>
+            </button>
+          ))}
+          {/* Custom location row */}
+          <button onMouseDown={(e) => { e.preventDefault(); handleCustomRow(); }} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
+            background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left',
+          }}>
+            <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+              background: dark ? `${accent}22` : `${accent}15`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent }}>
+              <MinkoIcon name="plus" size={16} strokeWidth={2}/>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: accent }}>Add "{query.trim()}" as custom location</div>
+              <div style={{ fontFamily: SANS, fontSize: 12, color: subColor, marginTop: 1 }}>Tap the map to place the pin</div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Awaiting pin instruction */}
+      {awaitingPin && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 10, pointerEvents: 'none',
+          background: floatBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: floatShadow, borderRadius: 16, padding: '14px 20px',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: textColor, marginBottom: 4 }}>Tap the map to place your pin</div>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: subColor }}>Pinch to zoom, drag to explore</div>
+        </div>
+      )}
+
+      {/* Custom name editor — shows when a custom pin is placed */}
+      {isCustom && pinLoc && (
+        <div style={{
+          position: 'absolute', bottom: `calc(max(24px, env(safe-area-inset-bottom, 0px) + 16px) + 62px)`,
+          left: 14, right: 14, zIndex: 10,
+          background: floatBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: floatShadow, borderRadius: 16, padding: '14px 16px',
+        }}>
+          <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: subColor, marginBottom: 8 }}>
+            {reverseLoading ? 'Finding place…' : 'Name this place'}
+          </div>
+          <input
+            value={customName}
+            onChange={e => {
+              setCustomName(e.target.value);
+              setSelectedPlace(prev => prev ? { ...prev, name: e.target.value } : null);
+            }}
+            placeholder="e.g. Grandma's House"
+            style={{
+              width: '100%', boxSizing: 'border-box', height: 42, padding: '0 12px',
+              borderRadius: 10, border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+              outline: 'none', background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)',
+              fontFamily: SANS, fontSize: 15, fontWeight: 500, color: textColor,
+            }}
+          />
+        </div>
+      )}
+
+      {/* Confirm button */}
+      <button
+        disabled={!canConfirm}
+        onClick={handleConfirm}
+        style={{
+          position: 'absolute', left: 14, right: 14,
+          bottom: 'max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px))',
+          zIndex: 10, height: 52, borderRadius: 16, border: 0,
+          cursor: canConfirm ? 'pointer' : 'default',
+          background: canConfirm ? accent : (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)'),
+          color: canConfirm ? 'white' : subColor,
+          fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
+          backdropFilter: canConfirm ? 'none' : 'blur(10px)',
+          WebkitBackdropFilter: canConfirm ? 'none' : 'blur(10px)',
+          boxShadow: canConfirm ? `0 4px 18px ${accent}55` : 'none',
+          transition: 'background 0.2s, color 0.2s, box-shadow 0.2s',
+        }}>
+        {awaitingPin ? 'Tap the map to place your pin' : canConfirm ? `Confirm — ${selectedPlace?.name || ''}` : 'Search or tap the map'}
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOG ENTRY FLOW (steps 2+3 — rendered after LocationPickerScreen confirms)
+// ─────────────────────────────────────────────────────────────
+function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker }) {
+  // initialPlace is always provided (place was chosen in LocationPickerScreen at App level)
+  const [step, setStep] = useState2(2);
+  const [place, setPlace] = useState2(initialPlace);
+  const [category, setCategory] = useState2(initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null);
   const [rating, setRating] = useState2(0);
   const [note, setNote] = useState2('');
   const [links, setLinks] = useState2([]);
@@ -756,50 +1034,7 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
   const [submitting, setSubmitting] = useState2(false);
-  const [query, setQuery] = useState2('');
-  const [results, setResults] = useState2([]);
-  const [loading, setLoading] = useState2(false);
-  const [sessionToken] = useState2(() => 'minko-' + Math.random().toString(36).slice(2));
   const photoInputRef = useRef2(null);
-
-  useEffect2(() => {
-    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&limit=5`;
-        const res = await fetch(url);
-        const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id,
-          name: s.name,
-          sub: s.place_formatted || '',
-          mapbox_id: s.mapbox_id,
-          poi_categories: s.poi_category || [],
-        })));
-      } catch (e) { setResults([]); }
-      setLoading(false);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const selectPlace = async (r) => {
-    if (!window.MAPBOX_TOKEN) return;
-    try {
-      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      const lon = feat?.geometry.coordinates[0];
-      const lat = feat?.geometry.coordinates[1];
-      const coords = feat ? lonLatToCoords(lon, lat) : { x: 50, y: 40 };
-      setPlace({ ...r, coords, lon, lat });
-      setCategory(mapboxCategoryToMinko(r.poi_categories));
-    } catch (e) {
-      setPlace({ ...r, coords: { x: 50, y: 40 }, lon: null, lat: null });
-      setCategory('experience');
-    }
-  };
 
   return (
     <div style={{ padding: '4px 0 32px', minHeight: 480 }}>
@@ -831,66 +1066,6 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           }}/>
         ))}
       </div>
-
-      {/* STEP 1 — Place search */}
-      {step === 1 && (
-        <div style={{ padding: '0 20px' }}>
-          <div style={{ position: 'relative', marginBottom: 14 }}>
-            <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>
-              <MinkoIcon name="search" size={18} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)'} strokeWidth={1.8}/>
-            </div>
-            <input placeholder="Search for a place…" value={query}
-              onChange={e => { setQuery(e.target.value); setPlace(null); }}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                height: 52, paddingLeft: 42, paddingRight: 16, borderRadius: 14,
-                border: 'none', outline: 'none',
-                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
-                fontFamily: SANS, fontSize: 16, fontWeight: 500,
-                color: dark ? '#f5f1e8' : '#1a1a2e',
-              }}/>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {!query.trim() && (
-              <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)' }}>
-                Start typing to search restaurants, hotels, landmarks…
-              </div>
-            )}
-            {loading && !results.length && (
-              <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)' }}>
-                Searching…
-              </div>
-            )}
-            {!loading && query.trim() && !results.length && (
-              <div style={{ padding: '24px 8px', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)' }}>
-                No places found
-              </div>
-            )}
-            {results.map(r => {
-              const sel = place?.id === r.id;
-              return (
-                <button key={r.id} onClick={() => selectPlace(r)} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '12px 8px',
-                  background: sel ? (dark ? 'rgba(79,91,213,0.18)' : `${accent}10`) : 'transparent',
-                  border: 0, borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%',
-                    background: sel ? accent : (dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)'),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'), flexShrink: 0 }}>
-                    <MinkoIcon name="pin" size={16} strokeWidth={1.8}/>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{r.name}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.sub}</div>
-                  </div>
-                  {sel && <MinkoIcon name="check" size={18} color={accent} strokeWidth={2.2}/>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* STEP 2 — Category */}
       {step === 2 && (
@@ -1031,15 +1206,13 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
 
       {/* Footer buttons */}
       <div style={{ display: 'flex', gap: 10, padding: '20px 20px 0' }}>
-        {step > 1 && (
-          <button onClick={() => setStep(step - 1)} style={{
-            height: 50, padding: '0 18px', borderRadius: 12, cursor: 'pointer',
-            background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)', border: 0,
-            color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
-          }}>Back</button>
-        )}
+        <button onClick={() => step === 2 ? (onBackToPicker ? onBackToPicker() : onClose()) : setStep(step - 1)} style={{
+          height: 50, padding: '0 18px', borderRadius: 12, cursor: 'pointer',
+          background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)', border: 0,
+          color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
+        }}>Back</button>
         <button
-          disabled={(step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || submitting))}
+          disabled={(step === 2 && !category) || (step === 3 && (!rating || submitting))}
           onClick={async () => {
             if (step < 3) { setStep(step + 1); return; }
             if (!window.sb) { onConfirm(); return; }
@@ -1080,7 +1253,7 @@ function LogEntryFlow({ dark, accent, onClose, onConfirm }) {
           }}
           style={{
             flex: 1, height: 50, borderRadius: 12, border: 0, cursor: 'pointer',
-            background: ((step === 1 && !place) || (step === 2 && !category) || (step === 3 && (!rating || submitting)))
+            background: ((step === 2 && !category) || (step === 3 && (!rating || submitting)))
               ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
             color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
           }}>

@@ -54,6 +54,8 @@ function MinkoGlobe({
   scrollable = true,
   initialOffset,
   fitToPins = false,
+  onMapClick,
+  centerOn = null,
 }) {
   const containerRef = React.useRef(null);
   const mapRef = React.useRef(null);
@@ -67,10 +69,12 @@ function MinkoGlobe({
   const activePinIdRef = React.useRef(activePinId);
   const onPinClickRef = React.useRef(onPinClick);
   const scrollableRef = React.useRef(scrollable);
+  const onMapClickRef = React.useRef(onMapClick);
   React.useEffect(() => { pinsRef.current = pins; }, [pins]);
   React.useEffect(() => { accentRef.current = accent; }, [accent]);
   React.useEffect(() => { activePinIdRef.current = activePinId; }, [activePinId]);
   React.useEffect(() => { onPinClickRef.current = onPinClick; }, [onPinClick]);
+  React.useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
 
   const addMarkers = React.useCallback(() => {
     const map = mapRef.current;
@@ -167,6 +171,11 @@ function MinkoGlobe({
       if (!isMini) setAtmosphere(map, isDark);
       if (isMini) map.touchZoomRotate.disableRotation();
       addMarkers();
+      if (!isMini) {
+        map.on('click', (e) => {
+          onMapClickRef.current?.({ lon: e.lngLat.lng, lat: e.lngLat.lat });
+        });
+      }
       if (isMini) {
         fitMiniMap(map);
       } else if (fitToPins) {
@@ -223,6 +232,13 @@ function MinkoGlobe({
       }
     }
   }, [pins, activePinId, accent]); // eslint-disable-line
+
+  // Fly to a location imperatively when centerOn changes
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !centerOn) return;
+    map.flyTo({ center: [centerOn.lon, centerOn.lat], zoom: centerOn.zoom ?? 14, duration: 600 });
+  }, [centerOn]); // eslint-disable-line
 
   const btnStyle = (dark) => ({
     width: 36, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',

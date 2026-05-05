@@ -41,9 +41,9 @@
 <script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=6"></script>
-<script type="text/babel" src="globe.jsx?v=12"></script>
+<script type="text/babel" src="globe.jsx?v=13"></script>
 <script type="text/babel" src="screens.jsx?v=17"></script>
-<script type="text/babel" src="flows.jsx?v=42"></script>
+<script type="text/babel" src="flows.jsx?v=43"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -78,6 +78,8 @@ function App() {
   const [showDetail, setShowDetail] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showLogPicker, setShowLogPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [logPickerPlace, setLogPickerPlace] = useState(null);
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
@@ -277,17 +279,29 @@ function App() {
             <ActionPickerSheet
               dark={dark} accent={accent}
               onClose={() => setShowLogPicker(false)}
-              onLogVisit={() => { setShowLogPicker(false); setLogKey(k => k + 1); setShowLog(true); }}
+              onLogVisit={() => { setShowLogPicker(false); setLogKey(k => k + 1); setLogPickerPlace(null); setShowLocationPicker(true); }}
               onSaveWishlist={() => { setShowLogPicker(false); setShowWishlistAdd(true); }}
             />
           </BottomSheet>
 
-          {/* Log entry flow */}
+          {/* Full-screen location picker (step 1 of log entry) */}
+          {showLocationPicker && (
+            <LocationPickerScreen
+              dark={dark}
+              accent={accent}
+              onConfirm={(place) => { setLogPickerPlace(place); setShowLocationPicker(false); setShowLog(true); }}
+              onCancel={() => setShowLocationPicker(false)}
+            />
+          )}
+
+          {/* Log entry flow (steps 2+3, after location is picked) */}
           <BottomSheet open={showLog} onClose={() => setShowLog(false)} dark={dark}>
             <LogEntryFlow key={logKey}
-              dark={dark} accent={accent}
+              dark={dark} accent={accent} user={user}
+              initialPlace={logPickerPlace}
               onClose={() => setShowLog(false)}
               onConfirm={() => { setShowLog(false); refreshEntries(); }}
+              onBackToPicker={() => { setShowLog(false); setShowLocationPicker(true); }}
             />
           </BottomSheet>
 

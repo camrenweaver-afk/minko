@@ -807,18 +807,25 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
     }
   };
 
-  const handleMapTap = async ({ lon, lat }) => {
+  const handleMapTap = async ({ lon, lat, poiFeature }) => {
     setPinLoc({ lon, lat });
     setIsCustom(true);
     setAwaitingPin(false);
-    if (!isCustom || !customName) {
+
+    if (poiFeature?.properties?.name) {
+      // User tapped a named POI label — use its data directly, no reverse geocode needed
+      const name = poiFeature.properties.name;
+      const poiCat = poiFeature.properties.category_en || poiFeature.properties.maki || '';
+      setCustomName(name);
+      setDropdownOpen(false);
+      setSelectedPlace({ id: 'custom-' + Date.now(), name, sub: poiFeature.properties.address || '', lon, lat, coords: lonLatToCoords(lon, lat), poi_categories: [poiCat], isCustom: true });
+    } else {
+      // Plain map tap — reverse geocode for a default name
       setReverseLoading(true);
       const name = await reverseGeocode(lon, lat);
       setReverseLoading(false);
       setCustomName(name);
       setSelectedPlace({ id: 'custom-' + Date.now(), name, sub: '', lon, lat, coords: lonLatToCoords(lon, lat), poi_categories: [], isCustom: true });
-    } else {
-      setSelectedPlace(prev => prev ? { ...prev, lon, lat, coords: lonLatToCoords(lon, lat) } : { id: 'custom-' + Date.now(), name: customName, sub: '', lon, lat, coords: lonLatToCoords(lon, lat), poi_categories: [], isCustom: true });
     }
   };
 

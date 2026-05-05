@@ -173,7 +173,14 @@ function MinkoGlobe({
       addMarkers();
       if (!isMini) {
         map.on('click', (e) => {
-          onMapClickRef.current?.({ lon: e.lngLat.lng, lat: e.lngLat.lat });
+          // Check if the user tapped a named POI label on the map
+          const features = map.queryRenderedFeatures(e.point);
+          const poi = features.find(f =>
+            f.geometry?.type === 'Point' && f.properties?.name
+          );
+          const lon = poi ? poi.geometry.coordinates[0] : e.lngLat.lng;
+          const lat = poi ? poi.geometry.coordinates[1] : e.lngLat.lat;
+          onMapClickRef.current?.({ lon, lat, poiFeature: poi || null });
         });
       }
       if (isMini) {

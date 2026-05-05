@@ -2256,8 +2256,21 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   useEffect2(() => {
     if (!user?.id) return;
     window.sb.from('profiles').select('avatar_url').eq('id', user.id).single()
-      .then(({ data }) => setLocalAvatarUrl(data?.avatar_url || user?.user_metadata?.avatar_url || null));
-  }, [user?.id]);
+      .then(({ data }) => {
+        const url = data?.avatar_url || user?.user_metadata?.avatar_url || null;
+        setLocalAvatarUrl(url ? url + '?cb=' + Date.now() : null);
+      });
+  }, [user?.id]); // eslint-disable-line
+
+  // Re-fetch avatar whenever the settings sheet closes (avatar may have been uploaded without Save)
+  useEffect2(() => {
+    if (showSettings || !user?.id) return;
+    window.sb.from('profiles').select('avatar_url').eq('id', user.id).single()
+      .then(({ data }) => {
+        const url = data?.avatar_url || null;
+        if (url) setLocalAvatarUrl(url + '?cb=' + Date.now());
+      });
+  }, [showSettings]); // eslint-disable-line
 
   // Fetch friends list — re-runs when friendsRefreshKey changes (e.g. after adding from Friends tab)
   useEffect2(() => {
@@ -2509,10 +2522,12 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           onClose={() => setShowSettings(false)}
           onSignOut={onSignOut}
           onSaved={() => {
-            // Re-read profile to pick up new avatar and name
+            // Re-read profile to pick up new avatar; cache-bust so browser fetches fresh
             if (user?.id) {
-              window.sb.from('profiles').select('avatar_url, display_name').eq('id', user.id).single()
-                .then(({ data }) => { if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url); });
+              window.sb.from('profiles').select('avatar_url').eq('id', user.id).single()
+                .then(({ data }) => {
+                  if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url + '?cb=' + Date.now());
+                });
             }
           }}
         />

@@ -1735,17 +1735,25 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
     <div style={{ position: 'absolute', inset: 0, zIndex, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
 
-        {/* Header row — mirrors ProfileScreen exactly */}
-        <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)', paddingLeft: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={onBack} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, position: 'relative', flexShrink: 0 }}>
-            <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={44}/>
-            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: '50%',
-              background: dark ? 'rgba(40,42,58,0.95)' : 'rgba(240,238,232,0.95)',
-              border: '1.5px solid ' + (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.1)'),
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke={mutedC} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            </div>
+        {/* Back button row */}
+        <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 4px)', paddingLeft: 12, paddingRight: 12, paddingBottom: 4 }}>
+          <button onClick={onBack} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.08)',
+            border: 0, borderRadius: 20, padding: '8px 14px 8px 8px',
+            cursor: 'pointer', fontFamily: SANS, fontSize: 15, fontWeight: 600,
+            color: dark ? '#f0ede6' : '#1a1a2e',
+          }}>
+            <MinkoIcon name="chevron-right" size={20} strokeWidth={2.2}
+              color={dark ? '#f0ede6' : '#1a1a2e'}
+              style={{ transform: 'rotate(180deg)', display: 'block' }}/>
+            Back
           </button>
+        </div>
+
+        {/* Header row */}
+        <div style={{ paddingTop: 10, paddingLeft: 20, paddingRight: 20, paddingBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Avatar src={profile.avatar_url} name={profile.display_name} color="#7a6ca3" size={44}/>
 
           <div style={{ flex: 1, fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, letterSpacing: -0.3, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.display_name || 'User'}

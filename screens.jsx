@@ -153,7 +153,7 @@ function BottomNav({ active, onChange, accent, dark, onLog }) {
   ];
   return (
     <div style={{
-      position: 'absolute', left: 14, right: 14, bottom: 'max(26px, calc(env(safe-area-inset-bottom) + 10px))', zIndex: 110,
+      position: 'absolute', left: 14, right: 14, bottom: 'max(26px, calc(env(safe-area-inset-bottom) + 10px))', zIndex: 150,
       display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box',
     }}>
       <GlassSurface dark={dark} radius={28} style={{ flex: 1, minWidth: 0, padding: '8px 6px' }}>

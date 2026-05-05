@@ -191,53 +191,70 @@ function BottomNav({ active, onChange, accent, dark, onLog, hideNav = false }) {
 // Bottom sheet wrapper
 // ─────────────────────────────────────────────────────────────
 function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag = false }) {
-  const [dragY, setDragY]       = React.useState(0);
-  const [animate, setAnimate]   = React.useState(true);
-  const isDraggingRef            = React.useRef(false);
-  const startYRef                = React.useRef(0);
-  const startTimeRef             = React.useRef(0);
-  const dragYRef                 = React.useRef(0);
-  const scrollElRef              = React.useRef(null);
+  const sheetRef  = React.useRef(null);
+  const scrollRef = React.useRef(null);
+  const drag      = React.useRef({ active: false, startY: 0, startTime: 0, dy: 0 });
+  const timerRef  = React.useRef(null);
 
-  // Reset when sheet closes
+  // Animate open/close by writing directly to the DOM ref — no React state,
+  // so reconciler never fights the gesture handler.
   React.useEffect(() => {
-    if (!open) { dragYRef.current = 0; setDragY(0); setAnimate(true); }
+    const el = sheetRef.current;
+    if (!el) return;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    el.style.transition = 'transform 0.36s cubic-bezier(0.32,0.72,0,1)';
+    el.style.transform  = open ? 'translateY(0)' : 'translateY(110%)';
   }, [open]);
 
-  const onDragStart = (clientY) => {
-    startYRef.current   = clientY;
-    startTimeRef.current = Date.now();
-    isDraggingRef.current = true;
-    setAnimate(false);
-  };
+  // Wire up touch listeners with { passive:false } so preventDefault() works.
+  React.useEffect(() => {
+    const el       = sheetRef.current;
+    const scrollEl = scrollRef.current;
+    if (!el) return;
 
-  const onDragMove = (clientY) => {
-    if (!isDraggingRef.current) return;
-    // If dragging from content area, only initiate when content is scrolled to top
-    const scrollTop = scrollElRef.current?.scrollTop ?? 0;
-    if (fullDrag && scrollTop > 0) { isDraggingRef.current = false; setAnimate(true); return; }
-    const delta = clientY - startYRef.current;
-    if (delta > 0) { dragYRef.current = delta; setDragY(delta); }
-  };
+    const onTouchStart = (e) => {
+      if (!open) return;
+      drag.current = { active: true, startY: e.touches[0].clientY, startTime: Date.now(), dy: 0 };
+    };
 
-  const onDragEnd = () => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    const elapsed  = Math.max(Date.now() - startTimeRef.current, 1);
-    const velocity = dragYRef.current / elapsed; // px/ms
-    const dismiss  = dragYRef.current > 100 || velocity > 0.4;
-    dragYRef.current = 0;
-    setDragY(0);
-    setAnimate(true);
-    if (dismiss) onClose();
-  };
+    const onTouchMove = (e) => {
+      if (!drag.current.active) return;
+      const scrollTop = scrollEl?.scrollTop ?? 0;
+      const dy = e.touches[0].clientY - drag.current.startY;
 
-  const handleTouchStart = (e) => onDragStart(e.touches[0].clientY);
-  const handleTouchMove  = (e) => onDragMove(e.touches[0].clientY);
-  const handleTouchEnd   = ()  => onDragEnd();
+      // Only drag when swiping downward AND content is scrolled to top
+      if (dy < 6 || scrollTop > 2) { drag.current.active = false; return; }
 
-  const transform  = !open ? 'translateY(110%)' : `translateY(${dragY}px)`;
-  const transition = animate ? 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+      e.preventDefault(); // prevent page/content scroll while dragging sheet
+      drag.current.dy       = dy;
+      el.style.transition   = 'none';
+      el.style.transform    = `translateY(${dy}px)`;
+    };
+
+    const onTouchEnd = () => {
+      if (!drag.current.active) return;
+      drag.current.active = false;
+      const { dy, startTime } = drag.current;
+      const velocity = dy / Math.max(Date.now() - startTime, 1); // px/ms
+      el.style.transition = 'transform 0.32s cubic-bezier(0.32,0.72,0,1)';
+      if (dy > 110 || velocity > 0.45) {
+        el.style.transform = 'translateY(110%)';
+        timerRef.current   = setTimeout(() => onClose(), 300);
+      } else {
+        el.style.transform = 'translateY(0)';
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true  });
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true  });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove',  onTouchMove);
+      el.removeEventListener('touchend',   onTouchEnd);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [open, onClose]);
 
   return (
     <>
@@ -248,31 +265,20 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
           animation: 'minko-fade-in 0.2s ease',
         }}/>
       )}
-      <div style={{
+      {/* transform NOT in React style — managed entirely via sheetRef to avoid reconciler interference */}
+      <div ref={sheetRef} style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 41,
         background: dark ? '#1c1d28' : '#faf8f3',
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
         boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',
-        transform, transition,
         maxHeight: '85%', overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
+        willChange: 'transform',
       }}>
-        {/* Drag handle — primary swipe-down target */}
-        <div
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', cursor: 'grab', flexShrink: 0 }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', flexShrink: 0, cursor: 'grab' }}>
           <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
         </div>
-        <div
-          ref={scrollElRef}
-          onTouchStart={fullDrag ? handleTouchStart : undefined}
-          onTouchMove={fullDrag ? handleTouchMove : undefined}
-          onTouchEnd={fullDrag ? handleTouchEnd : undefined}
-          style={{ overflow: 'auto', flex: 1 }}
-        >{children}</div>
+        <div ref={scrollRef} style={{ overflow: 'auto', flex: 1 }}>{children}</div>
       </div>
     </>
   );

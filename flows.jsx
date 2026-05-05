@@ -2508,7 +2508,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               const p = f.requester_id === user?.id ? f.addressee : f.requester;
               if (!p) return null;
               return (
-                <button key={f.id} onClick={() => setViewingFriend(p)}
+                <button key={f.id} onClick={() => { setViewingFriend(p); setShowFriendsList(false); }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', border: 0, background: 'none', cursor: 'pointer', textAlign: 'left',
                     borderBottom: i < friendsList.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none' }}>
                   <Avatar src={p.avatar_url} name={p.display_name} color="#7a6ca3" size={46}/>
@@ -2560,7 +2560,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
                 .then(({ data }) => setFriendsList(data || []));
             }
           }}
-          zIndex={90}
+          zIndex={170}
         />
       )}
     </div>

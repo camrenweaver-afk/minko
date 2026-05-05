@@ -47,7 +47,7 @@
 <script type="text/babel" src="icons.jsx?v=6"></script>
 <script type="text/babel" src="globe.jsx?v=15"></script>
 <script type="text/babel" src="screens.jsx?v=22"></script>
-<script type="text/babel" src="flows.jsx?v=48"></script>
+<script type="text/babel" src="flows.jsx?v=49"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=7"></script>
 
@@ -109,12 +109,23 @@ function App() {
       if (event === 'INITIAL_SESSION') setAuthReady(true);
       if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         const u = session.user;
-        window.sb.from('profiles').upsert({
+        const displayName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'User';
+        // Try to INSERT for new users (includes OAuth avatar as default).
+        // On conflict the profile already exists — update only display_name,
+        // never touch avatar_url so custom uploads survive sign-out / re-login.
+        window.sb.from('profiles').insert({
           id: u.id,
-          display_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
+          display_name: displayName,
           avatar_url: u.user_metadata?.avatar_url || null,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' }).then(() => {});
+        }).then(({ error }) => {
+          if (error) {
+            window.sb.from('profiles').update({
+              display_name: displayName,
+              updated_at: new Date().toISOString(),
+            }).eq('id', u.id).then(() => {});
+          }
+        });
       }
     });
     return () => subscription.unsubscribe();

@@ -2248,14 +2248,16 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   const [showFriendsList, setShowFriendsList] = useState2(false);
   const [viewingFriend, setViewingFriend] = useState2(null);
   const [avatarUploading, setAvatarUploading] = useState2(false);
-  const [localAvatarUrl, setLocalAvatarUrl] = useState2(user?.user_metadata?.avatar_url || null);
+  const [localAvatarUrl, setLocalAvatarUrl] = useState2(null);
   const [friendsList, setFriendsList] = useState2([]);
   const avatarFileRef = useRef2(null);
 
-  // Stay in sync if the user prop updates from outside (auth state change)
+  // Load avatar from profiles table — survives OAuth re-login without being overwritten
   useEffect2(() => {
-    setLocalAvatarUrl(user?.user_metadata?.avatar_url || null);
-  }, [user?.user_metadata?.avatar_url]);
+    if (!user?.id) return;
+    window.sb.from('profiles').select('avatar_url').eq('id', user.id).single()
+      .then(({ data }) => setLocalAvatarUrl(data?.avatar_url || user?.user_metadata?.avatar_url || null));
+  }, [user?.id]);
 
   // Fetch friends list — re-runs when friendsRefreshKey changes (e.g. after adding from Friends tab)
   useEffect2(() => {
@@ -2280,8 +2282,11 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = window.sb.storage.from('avatars').getPublicUrl(path);
       setLocalAvatarUrl(publicUrl);
-      const { error: updateError } = await window.sb.auth.updateUser({ data: { avatar_url: publicUrl } });
-      if (updateError) console.error('Avatar metadata update error', updateError);
+      // Write to both auth metadata and profiles table so the avatar persists across sign-outs
+      await Promise.all([
+        window.sb.auth.updateUser({ data: { avatar_url: publicUrl } }),
+        window.sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id),
+      ]);
     } catch(err) { console.error('Avatar upload error', err); }
     setAvatarUploading(false);
     e.target.value = '';

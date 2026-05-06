@@ -141,10 +141,10 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
 
   const isWishlist = tableKind === 'wishlist';
   const cats = [
-    { id: 'restaurant', label: 'Restaurant' },
-    { id: 'hotel', label: 'Hotel' },
-    { id: 'attraction', label: 'Attraction' },
-    { id: 'experience', label: 'Experience' },
+    { id: 'restaurant', label: 'Eat' },
+    { id: 'hotel', label: 'Stay' },
+    { id: 'attraction', label: 'See' },
+    { id: 'experience', label: 'Do' },
   ];
 
   const addLink = () => {
@@ -720,10 +720,10 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
   };
 
   const cats = [
-    { id: 'restaurant', label: 'Restaurant' },
-    { id: 'hotel', label: 'Hotel' },
-    { id: 'attraction', label: 'Attraction' },
-    { id: 'experience', label: 'Experience' },
+    { id: 'restaurant', label: 'Eat' },
+    { id: 'hotel', label: 'Stay' },
+    { id: 'attraction', label: 'See' },
+    { id: 'experience', label: 'Do' },
   ];
 
   return (
@@ -1959,10 +1959,10 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
   if (!friend) return null;
   const entries = MINKO_FRIEND_ENTRIES.filter(e => e.friendId === friend.id);
   const cats = [
-    { id: 'restaurant', label: 'Restaurant' },
-    { id: 'hotel', label: 'Hotel' },
-    { id: 'attraction', label: 'Attraction' },
-    { id: 'experience', label: 'Experience' },
+    { id: 'restaurant', label: 'Eat' },
+    { id: 'hotel', label: 'Stay' },
+    { id: 'attraction', label: 'See' },
+    { id: 'experience', label: 'Do' },
   ];
   return (
     <SlideOverlay open={open} onBack={onBack} dark={dark}>

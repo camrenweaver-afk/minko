@@ -194,10 +194,10 @@ const MINKO_FRIEND_ENTRIES = [
 const MINKO_FRIENDS_AT_BUCA = ['f1', 'f3'];
 
 const MINKO_CATEGORIES = [
-  { id: 'restaurant', label: 'Restaurant', count: 18 },
-  { id: 'hotel',      label: 'Hotel',      count: 9  },
-  { id: 'attraction', label: 'Attraction', count: 14 },
-  { id: 'experience', label: 'Experience', count: 6  },
+  { id: 'restaurant', label: 'Eat',  count: 18 },
+  { id: 'hotel',      label: 'Stay', count: 9  },
+  { id: 'attraction', label: 'See',  count: 14 },
+  { id: 'experience', label: 'Do',   count: 6  },
 ];
 
 // ─────────────────────────────────────────────────────────────

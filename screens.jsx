@@ -658,7 +658,7 @@ function PhotoLightbox({ photos, startIndex = 0, onClose }) {
 // ─────────────────────────────────────────────────────────────
 // PLACE DETAIL (bottom sheet content)
 // ─────────────────────────────────────────────────────────────
-function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user, onFriendProfile }) {
+function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friendMode = false, friend, onEdit, onDelete, onPhotosChanged, user, onFriendProfile, onSaveWishlist }) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -950,6 +950,22 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
               color: '#e5534b',
             }}>
               <MinkoIcon name="trash" size={18} strokeWidth={1.7}/>
+            </button>
+          </div>
+        )}
+
+        {/* Save to wishlist — friend mode only */}
+        {friendMode && onSaveWishlist && (
+          <div style={{ marginTop: 20 }}>
+            <button onClick={() => onSaveWishlist(entry)} style={{
+              width: '100%', height: 50, borderRadius: 14, border: 0, cursor: 'pointer',
+              background: accent, color: 'white',
+              fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+              boxShadow: `0 4px 14px ${accent}44`,
+            }}>
+              <MinkoIcon name="bookmark" size={17} color="white" strokeWidth={2}/>
+              Save to Wishlist
             </button>
           </div>
         )}

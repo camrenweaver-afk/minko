@@ -658,10 +658,10 @@ function ActionPickerSheet({ dark, accent, onClose, onLogVisit, onSaveWishlist }
 // ─────────────────────────────────────────────────────────────
 // SAVE TO WISHLIST FLOW (2 steps)
 // ─────────────────────────────────────────────────────────────
-function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null }) {
+function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, initialCategory = null }) {
   const [step, setStep] = useState2(initialPlace ? 2 : 1);
   const [place, setPlace] = useState2(initialPlace);
-  const [category, setCategory] = useState2(initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : 'experience');
+  const [category, setCategory] = useState2(initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : 'experience'));
   const [note, setNote] = useState2('');
   const [query, setQuery] = useState2('');
   const [results, setResults] = useState2([]);
@@ -2010,6 +2010,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const [profileFriends, setProfileFriends] = useState2([]);
   const [friendsListLoading, setFriendsListLoading] = useState2(false);
   const [viewingSubFriend, setViewingSubFriend] = useState2(null);
+  const [wishlistSaveEntry, setWishlistSaveEntry] = useState2(null);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -2202,6 +2203,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
               friendsAtPlace={[]}
               user={user}
               onClose={() => setViewingEntry(null)}
+              onSaveWishlist={(entry) => { setViewingEntry(null); setWishlistSaveEntry(entry); }}
             />
           </div>
         </div>
@@ -2307,6 +2309,38 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
           zIndex={7}
         />
       )}
+
+      {/* Save to wishlist — inline bottom sheet */}
+      {wishlistSaveEntry && (
+        <div onClick={() => setWishlistSaveEntry(null)} style={{
+          position: 'absolute', inset: 0, zIndex: 20,
+          background: 'rgba(15,20,40,0.22)', backdropFilter: 'blur(2px)',
+        }}/>
+      )}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 21,
+        background: dark ? '#1c1d28' : '#faf8f3',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.22)',
+        transform: wishlistSaveEntry ? 'translateY(0)' : 'translateY(110%)',
+        transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+        maxHeight: '92%', overflowY: 'auto',
+        pointerEvents: wishlistSaveEntry ? 'auto' : 'none',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+        </div>
+        {wishlistSaveEntry && (
+          <SaveToWishlistFlow
+            key={wishlistSaveEntry.id}
+            dark={dark} accent={accent} user={user}
+            initialPlace={{ name: wishlistSaveEntry.place, sub: wishlistSaveEntry.location, lon: wishlistSaveEntry.lon, lat: wishlistSaveEntry.lat }}
+            initialCategory={wishlistSaveEntry.category}
+            onClose={() => setWishlistSaveEntry(null)}
+            onConfirm={() => setWishlistSaveEntry(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }

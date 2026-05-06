@@ -1524,8 +1524,25 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
     </button>
   );
 
+  const bg = dark ? '#13141b' : '#faf8f3';
   return (
-    <SlideOverlay open={open} onBack={onBack} dark={dark} title="Wishlist">
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 160,
+      background: bg,
+      transform: open ? 'translateX(0)' : 'translateX(100%)',
+      transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
+      display: 'flex', flexDirection: 'column',
+      pointerEvents: open ? 'auto' : 'none',
+    }}>
+      {/* Nav bar */}
+      <div style={{ padding: '58px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px 6px 0', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+          <MinkoIcon name="chevron-right" size={20} strokeWidth={2.2} style={{ transform: 'rotate(180deg)', display: 'block' }}/>
+          <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500 }}>Back</span>
+        </button>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: SANS, fontSize: 15, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.6)', marginRight: 60 }}>Wishlist</div>
+      </div>
+
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
         {/* Map / List tab toggle */}
@@ -1762,18 +1779,19 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
           </div>
         </div>
 
-        {/* Wishlist item detail — nested slide overlay */}
-        <WishlistItemSheet
-          item={activeItem}
-          open={!!activeItem}
-          onBack={() => setActiveItem(null)}
-          dark={dark} accent={accent} user={user}
-          collections={collections}
-          onDeleted={handleItemDeleted}
-          onUpdated={handleItemUpdated}
-        />
       </div>
-    </SlideOverlay>
+
+      {/* Wishlist item detail — sits at outer level so it covers the nav bar too */}
+      <WishlistItemSheet
+        item={activeItem}
+        open={!!activeItem}
+        onBack={() => setActiveItem(null)}
+        dark={dark} accent={accent} user={user}
+        collections={collections}
+        onDeleted={handleItemDeleted}
+        onUpdated={handleItemUpdated}
+      />
+    </div>
   );
 }
 

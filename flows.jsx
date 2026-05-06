@@ -366,7 +366,7 @@ function DeleteConfirmSheet({ entry, tableKind, dark, accent, onClose, onConfirm
 // ─────────────────────────────────────────────────────────────
 // WISHLIST ITEM SHEET — full view of a wishlist item
 // ─────────────────────────────────────────────────────────────
-function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, onUpdated, collections = [] }) {
+function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, onUpdated, collections = [], onVisited, onCreateCollection }) {
   const [localItem, setLocalItem] = useState2(item || {});
   const [showEdit, setShowEdit] = useState2(false);
   const [showPhotos, setShowPhotos] = useState2(false);
@@ -380,15 +380,8 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   const assignCollection = async (id) => {
     const updated = { ...localItem, collection_id: id };
     setLocalItem(updated);
-    await window.sb.from('wishlist').update({ collection_id: id }).eq('id', localItem.id);
-    if (onUpdated) onUpdated(updated);
-  };
-
-  const setRating = async (r) => {
-    const newRating = (r === localItem.rating) ? null : r;
-    const updated = { ...localItem, rating: newRating };
-    setLocalItem(updated);
-    await window.sb.from('wishlist').update({ rating: newRating }).eq('id', localItem.id);
+    const { error } = await window.sb.from('wishlist').update({ collection_id: id }).eq('id', localItem.id);
+    if (error) console.error('assignCollection error', error);
     if (onUpdated) onUpdated(updated);
   };
 
@@ -452,11 +445,22 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             </div>
           )}
 
-          {/* Collection assignment */}
-          {collections.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
-                color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Collection</div>
+          {/* Collection assignment — always visible */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
+              color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Collection</div>
+            {collections.length === 0 ? (
+              <button onClick={onCreateCollection} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px',
+                borderRadius: 99, border: `1px dashed ${dark ? 'rgba(255,255,255,0.25)' : 'rgba(20,20,30,0.22)'}`,
+                background: 'transparent', cursor: 'pointer',
+                fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
+                color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)',
+              }}>
+                <MinkoIcon name="plus" size={13} strokeWidth={2.5} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)'}/>
+                Create a collection
+              </button>
+            ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                 <button onClick={() => assignCollection(null)} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px',
@@ -480,15 +484,17 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
                     </button>
                   );
                 })}
+                <button onClick={onCreateCollection} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, height: 30, padding: '0 10px',
+                  borderRadius: 99, border: `1px dashed ${dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.18)'}`,
+                  background: 'transparent', cursor: 'pointer',
+                  fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)',
+                }}>
+                  <MinkoIcon name="plus" size={12} strokeWidth={2.5} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)'}/>
+                  New
+                </button>
               </div>
-            </div>
-          )}
-
-          {/* Rating — tappable */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
-              color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Rating</div>
-            <HalfStarPicker rating={localItem.rating || 0} onChange={setRating} size={30} dark={dark}/>
+            )}
           </div>
 
           {localItem.note && (
@@ -524,8 +530,22 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             </div>
           )}
 
+          {/* Visited button */}
+          {onVisited && (
+            <button onClick={() => onVisited(localItem)} style={{
+              width: '100%', height: 50, borderRadius: 14, border: 0, cursor: 'pointer',
+              background: '#00b894', color: 'white',
+              fontFamily: SANS, fontSize: 15.5, fontWeight: 700, letterSpacing: 0.2,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              marginBottom: 10, boxShadow: '0 4px 16px rgba(0,184,148,0.35)',
+            }}>
+              <MinkoIcon name="check" size={18} color="white" strokeWidth={2.5}/>
+              I visited this place!
+            </button>
+          )}
+
           {/* Action bar */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 4, marginBottom: 48 }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 48 }}>
             <button onClick={() => setShowEdit(true)} style={{
               flex: 1, height: 48, borderRadius: 12, border: 0, cursor: 'pointer',
               background: accent, color: 'white',
@@ -1114,11 +1134,11 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
 // ─────────────────────────────────────────────────────────────
 // LOG ENTRY FLOW (steps 2+3 — rendered after LocationPickerScreen confirms)
 // ─────────────────────────────────────────────────────────────
-function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker }) {
+function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker, initialCategory = null }) {
   // initialPlace is always provided (place was chosen in LocationPickerScreen at App level)
   const [step, setStep] = useState2(2);
   const [place, setPlace] = useState2(initialPlace);
-  const [category, setCategory] = useState2(initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null);
+  const [category, setCategory] = useState2(initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null));
   const [rating, setRating] = useState2(0);
   const [note, setNote] = useState2('');
   const [links, setLinks] = useState2([]);
@@ -1429,7 +1449,9 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   const [newCollName, setNewCollName] = useState2('');
   const [newCollColor, setNewCollColor] = useState2(COLLECTION_PALETTE[0]);
   const [savingColl, setSavingColl] = useState2(false);
+  const [collError, setCollError] = useState2('');
   const [activeItem, setActiveItem] = useState2(null);
+  const [visitedItem, setVisitedItem] = useState2(null);
 
   const refetch = () => {
     if (!user) return;
@@ -1475,12 +1497,19 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   const handleCreateCollection = async () => {
     if (!newCollName.trim()) return;
     setSavingColl(true);
-    await window.sb.from('wishlist_collections').insert({ user_id: user.id, name: newCollName.trim(), color: newCollColor });
+    setCollError('');
+    const { error } = await window.sb.from('wishlist_collections').insert({ user_id: user.id, name: newCollName.trim(), color: newCollColor });
     setSavingColl(false);
+    if (error) { setCollError('Could not save — make sure you ran the SQL migration.'); console.error('insert collection error', error); return; }
     setNewCollName('');
     setNewCollColor(COLLECTION_PALETTE[0]);
     setShowNewCollection(false);
     refetch();
+  };
+
+  const openNewCollection = () => {
+    setActiveItem(null); // close item sheet first
+    setShowNewCollection(true);
   };
 
   const catColor = (cat) => (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[cat]) || accent;
@@ -1770,6 +1799,9 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
               ))}
             </div>
 
+            {collError && (
+              <div style={{ fontFamily: SANS, fontSize: 13, color: '#e5534b', marginBottom: 12, lineHeight: 1.45 }}>{collError}</div>
+            )}
             <button onClick={handleCreateCollection} disabled={!newCollName.trim() || savingColl} style={{
               width: '100%', height: 50, borderRadius: 14, border: 0, cursor: 'pointer',
               background: accent, color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600,
@@ -1790,7 +1822,41 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
         collections={collections}
         onDeleted={handleItemDeleted}
         onUpdated={handleItemUpdated}
+        onVisited={(w) => { setActiveItem(null); setVisitedItem(w); }}
+        onCreateCollection={openNewCollection}
       />
+
+      {/* Visited — log entry flow inline sheet */}
+      {visitedItem && (
+        <div onClick={() => setVisitedItem(null)} style={{
+          position: 'absolute', inset: 0, zIndex: 20,
+          background: 'rgba(15,20,40,0.22)', backdropFilter: 'blur(2px)',
+        }}/>
+      )}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 21,
+        background: dark ? '#1c1d28' : '#faf8f3',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.22)',
+        transform: visitedItem ? 'translateY(0)' : 'translateY(110%)',
+        transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+        maxHeight: '92%', overflowY: 'auto',
+        pointerEvents: visitedItem ? 'auto' : 'none',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+        </div>
+        {visitedItem && (
+          <LogEntryFlow
+            key={visitedItem.id}
+            dark={dark} accent={accent} user={user}
+            initialPlace={{ name: visitedItem.place, sub: visitedItem.location, lon: visitedItem.lon, lat: visitedItem.lat }}
+            initialCategory={visitedItem.category}
+            onClose={() => setVisitedItem(null)}
+            onConfirm={() => { setVisitedItem(null); refetch(); if (onItemAdded) onItemAdded(); }}
+          />
+        )}
+      </div>
     </div>
   );
 }

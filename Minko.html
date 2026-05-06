@@ -49,7 +49,7 @@
 <script type="text/babel" src="screens.jsx?v=25"></script>
 <script type="text/babel" src="flows.jsx?v=53"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
-<script type="text/babel" src="onboarding.jsx?v=7"></script>
+<script type="text/babel" src="onboarding.jsx?v=8"></script>
 
 <script type="text/babel">
 const { useState, useEffect } = React;
@@ -98,6 +98,7 @@ function App() {
   const [friendsRefreshKey, setFriendsRefreshKey] = useState(0);
   const [showFriendProfile, setShowFriendProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -108,6 +109,7 @@ function App() {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
       if (event === 'INITIAL_SESSION') setAuthReady(true);
+      if (event === 'PASSWORD_RECOVERY') setShowPasswordReset(true);
       if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         const u = session.user;
         const displayName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'User';
@@ -382,6 +384,14 @@ function App() {
               }}
             />
           </BottomSheet>
+
+          {/* Password reset — shown when user arrives via a reset link */}
+          {showPasswordReset && (
+            <PasswordResetScreen
+              dark={dark} accent={accent}
+              onDone={() => setShowPasswordReset(false)}
+            />
+          )}
 
           {/* Onboarding — shown when not authenticated and not dismissed */}
           {authReady && !user && !onboardingDismissed && (

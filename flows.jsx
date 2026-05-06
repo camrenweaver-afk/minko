@@ -2679,6 +2679,8 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   const [showSettings, setShowSettings] = useState2(false);
   const [showReviews, setShowReviews] = useState2(false);
   const [viewingReview, setViewingReview] = useState2(null);
+  const [filterCategory, setFilterCategory] = useState2(null);
+  const [filterRating, setFilterRating] = useState2(null);
   const [showFriendsList, setShowFriendsList] = useState2(false);
   const [viewingFriend, setViewingFriend] = useState2(null);
   const [avatarUploading, setAvatarUploading] = useState2(false);
@@ -2922,47 +2924,101 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       />
 
       {/* Reviews list overlay */}
-      {showReviews && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
-          <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => setShowReviews(false)} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
-            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Reviews</span>
-            <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>{entries.length} total</span>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
-            {entries.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No reviews yet</div>
-            ) : [...entries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).map((e, i, arr) => (
-              <button key={e.id} onClick={() => setViewingReview(e)} style={{
-                width: '100%', display: 'flex', gap: 12, padding: '12px 0', textAlign: 'left', border: 0, background: 'none', cursor: 'pointer',
-                borderBottom: i < arr.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none',
-              }}>
-                {e.photos?.[0] ? (
-                  <img src={e.photos[0]} style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} alt=""/>
-                ) : (
-                  <div style={{ width: 60, height: 60, borderRadius: 12, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,20,30,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MinkoIcon name="pin" size={22} color={mutedC} strokeWidth={1.4}/>
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{e.place || 'Unnamed place'}</div>
-                    {e.is_private && <MinkoIcon name="lock" size={12} color={mutedC} strokeWidth={2}/>}
-                  </div>
-                  <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {e.rating > 0 && <Stars n={e.rating} size={12} color="#c89e54"/>}
-                    {e.date && <span style={{ fontFamily: SANS, fontSize: 11, color: mutedC }}>{e.date}</span>}
-                  </div>
-                  {e.note && <div style={{ fontFamily: SERIF, fontSize: 13, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{e.note}</div>}
-                </div>
+      {showReviews && (() => {
+        const catColors = window.MINKO_CATEGORY_COLORS || {};
+        const closeReviews = () => { setShowReviews(false); setFilterCategory(null); setFilterRating(null); };
+        const sorted = [...entries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        const filtered = sorted.filter(e =>
+          (!filterCategory || e.category === filterCategory) &&
+          (!filterRating || e.rating >= filterRating)
+        );
+        const chipBase = { border: 'none', cursor: 'pointer', borderRadius: 999, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '5px 12px', flexShrink: 0, transition: 'all 0.15s' };
+        return (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: dark ? '#0e1018' : '#f4f1eb', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+
+            {/* Header */}
+            <div style={{ paddingTop: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px))', paddingLeft: 8, paddingRight: 16, paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <button onClick={closeReviews} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
-            ))}
+              <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Reviews</span>
+              <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>
+                {filtered.length !== entries.length ? `${filtered.length} of ${entries.length}` : `${entries.length} total`}
+              </span>
+            </div>
+
+            {/* Category filter row */}
+            <div style={{ display: 'flex', gap: 6, padding: '0 16px 6px', overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
+              {[{ id: null, label: 'All' }, ...MINKO_CATEGORIES].map(c => {
+                const sel = filterCategory === c.id;
+                return (
+                  <button key={c.id ?? 'all'} onClick={() => setFilterCategory(sel ? null : c.id)}
+                    style={{ ...chipBase,
+                      background: sel ? (c.id ? catColors[c.id] : accent) : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.06)'),
+                      color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.7)'),
+                    }}>
+                    {c.id && <MinkoIcon name={c.id} size={12} color={sel ? 'white' : (c.id ? catColors[c.id] : mutedC)} strokeWidth={2} style={{ display: 'inline', marginRight: 4 }}/>}
+                    {c.label || 'All'}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Star rating filter row */}
+            <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px', overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
+              {[{ val: null, label: 'Any ★' }, { val: 1, label: '1★+' }, { val: 2, label: '2★+' }, { val: 3, label: '3★+' }, { val: 4, label: '4★+' }, { val: 5, label: '5★' }].map(r => {
+                const sel = filterRating === r.val;
+                return (
+                  <button key={r.val ?? 'any'} onClick={() => setFilterRating(sel ? null : r.val)}
+                    style={{ ...chipBase,
+                      background: sel ? '#c89e54' : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.06)'),
+                      color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.7)'),
+                    }}>
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.08)', flexShrink: 0 }}/>
+
+            {/* List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
+              {filtered.length === 0 ? (
+                <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>
+                  {entries.length === 0 ? 'No reviews yet' : 'No matches — try different filters'}
+                </div>
+              ) : filtered.map((e, i, arr) => (
+                <button key={e.id} onClick={() => setViewingReview(e)} style={{
+                  width: '100%', display: 'flex', gap: 12, padding: '12px 0', textAlign: 'left', border: 0, background: 'none', cursor: 'pointer',
+                  borderBottom: i < arr.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none',
+                }}>
+                  {e.photos?.[0] ? (
+                    <img src={e.photos[0]} style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} alt=""/>
+                  ) : (
+                    <div style={{ width: 60, height: 60, borderRadius: 12, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,20,30,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <MinkoIcon name={e.category || 'pin'} size={22} color={e.category ? catColors[e.category] : mutedC} strokeWidth={1.4}/>
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{e.place || 'Unnamed place'}</div>
+                      {e.is_private && <MinkoIcon name="lock" size={12} color={mutedC} strokeWidth={2}/>}
+                    </div>
+                    <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location || ''}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {e.rating > 0 && <Stars n={e.rating} size={12} color="#c89e54"/>}
+                      {e.date && <span style={{ fontFamily: SANS, fontSize: 11, color: mutedC }}>{e.date}</span>}
+                    </div>
+                    {e.note && <div style={{ fontFamily: SERIF, fontSize: 13, color: mutedC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{e.note}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Review detail — floats above the reviews list */}
       {viewingReview && (

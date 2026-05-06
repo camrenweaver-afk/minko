@@ -3149,6 +3149,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [loading, setLoading] = useState2(false);
   const [optimisticAdded, setOptimisticAdded] = useState2(new Set()); // ids added this session
   const [viewingProfile, setViewingProfile] = useState2(null); // just the profile object now
+  const [filterCategory, setFilterCategory] = useState2(null);
+  const [filterRating, setFilterRating] = useState2(null);
   const searchTimer = useRef2(null);
 
   const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
@@ -3233,7 +3235,11 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 
   const showSearch = searchQuery.trim().length >= 2;
   const showPanel = showSearch;
-  const pins = friendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
+  const filteredFriendEntries = friendEntries.filter(e =>
+    (!filterCategory || e.category === filterCategory) &&
+    (!filterRating || e.rating >= filterRating)
+  );
+  const pins = filteredFriendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
@@ -3274,6 +3280,15 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           )}
         </GlassSurface>
       </div>
+
+      {/* Filter bar — hidden while search panel is open */}
+      {!showPanel && (
+        <MapFilterBar dark={dark} accent={accent}
+          filterCategory={filterCategory} setFilterCategory={setFilterCategory}
+          filterRating={filterRating} setFilterRating={setFilterRating}
+          topOffset={64}
+        />
+      )}
 
       {/* Search results panel — only shown while actively searching */}
       {showPanel && (

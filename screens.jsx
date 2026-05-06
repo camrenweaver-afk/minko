@@ -513,26 +513,35 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
 }
 
 // ─────────────────────────────────────────────────────────────
-// Category legend (small color-key chip near top)
+// Map filter bar — floating chip rows for category + star rating
 // ─────────────────────────────────────────────────────────────
-function CategoryLegend({ dark }) {
-  const cats = [
-    { id: 'restaurant', label: 'Eat' },
-    { id: 'hotel',      label: 'Stay' },
-    { id: 'attraction', label: 'See' },
-    { id: 'experience', label: 'Do' },
-  ];
+function MapFilterBar({ dark, accent, filterCategory, setFilterCategory, filterRating, setFilterRating, topOffset = 64 }) {
   const colors = window.MINKO_CATEGORY_COLORS || {};
+  const CAT_LABELS = { restaurant: 'Eat', hotel: 'Stay', attraction: 'See', experience: 'Do' };
+  const CAT_IDS = ['restaurant', 'hotel', 'attraction', 'experience'];
+  const STARS = [{ val: null, label: 'Any ★' }, { val: 1, label: '1★+' }, { val: 2, label: '2★+' }, { val: 3, label: '3★+' }, { val: 4, label: '4★+' }, { val: 5, label: '5★' }];
+
+  const chip = (active, bg, label, onClick) => (
+    <button key={label} onClick={onClick} style={{
+      border: 'none', cursor: 'pointer', borderRadius: 999, flexShrink: 0,
+      fontFamily: SANS, fontSize: 12, fontWeight: 600, padding: '4px 10px', transition: 'all 0.15s',
+      background: active ? (bg || accent) : 'transparent',
+      color: active ? 'white' : (dark ? 'rgba(255,255,255,0.72)' : 'rgba(20,20,30,0.62)'),
+    }}>{label}</button>
+  );
+
   return (
-    <div style={{ position: 'absolute', top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 72px)', right: 12, zIndex: 25 }}>
-      <GlassSurface dark={dark} radius={999} style={{ padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-        {cats.map(c => (
-          <div key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors[c.id], boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.15)' }}/>
-            <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 500, letterSpacing: 0.2,
-              color: dark ? 'rgba(255,255,255,0.75)' : 'rgba(20,20,30,0.65)' }}>{c.label}</span>
-          </div>
-        ))}
+    <div style={{ position: 'absolute', top: `calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + ${topOffset}px)`, left: 12, right: 12, zIndex: 28 }}>
+      <GlassSurface dark={dark} radius={14} style={{ padding: '5px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Category row */}
+        <div style={{ display: 'flex', gap: 2, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+          {chip(filterCategory === null, accent, 'All', () => setFilterCategory(null))}
+          {CAT_IDS.map(id => chip(filterCategory === id, colors[id], CAT_LABELS[id], () => setFilterCategory(filterCategory === id ? null : id)))}
+        </div>
+        {/* Star row */}
+        <div style={{ display: 'flex', gap: 2, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+          {STARS.map(r => chip(filterRating === r.val, '#c89e54', r.label, () => setFilterRating(filterRating === r.val ? null : r.val)))}
+        </div>
       </GlassSurface>
     </div>
   );
@@ -544,14 +553,23 @@ function CategoryLegend({ dark }) {
 function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist, onNotifications, onMapLongPress }) {
   const cat = window.MINKO_CATEGORY_COLORS;
   const [searchPin, setSearchPin] = useState(null);
+  const [filterCategory, setFilterCategory] = useState(null);
+  const [filterRating, setFilterRating] = useState(null);
+
+  const filteredEntries = entries.filter(e =>
+    (!filterCategory || e.category === filterCategory) &&
+    (!filterRating || e.rating >= filterRating)
+  );
+
   const pins = [
-    ...entries.filter(e => e.lon && e.lat).map(e => ({
+    ...filteredEntries.filter(e => e.lon && e.lat).map(e => ({
       id: e.id, lon: e.lon, lat: e.lat,
       color: cat[e.category] || accent,
       photo: variant === 'photo' ? e.photos?.[0] : undefined,
     })),
     ...(searchPin ? [{ id: '__search__', lon: searchPin.lon, lat: searchPin.lat, color: accent }] : []),
   ];
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <MinkoGlobe dark={dark} accent={accent}
@@ -564,7 +582,11 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
       />
       <SafeTopBar dark={dark}/>
       <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications} onPlaceSelected={setSearchPin}/>
-      <CategoryLegend dark={dark}/>
+      <MapFilterBar dark={dark} accent={accent}
+        filterCategory={filterCategory} setFilterCategory={setFilterCategory}
+        filterRating={filterRating} setFilterRating={setFilterRating}
+        topOffset={64}
+      />
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>
   );
@@ -1103,6 +1125,7 @@ function PinPreview({ entry, dark, accent, onView, onClose, friend }) {
 }
 
 window.HomeScreen = HomeScreen;
+window.MapFilterBar = MapFilterBar;
 window.PlaceDetailSheet = PlaceDetailSheet;
 window.PinPreview = PinPreview;
 window.BottomSheet = BottomSheet;

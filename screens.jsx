@@ -352,7 +352,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
   return (
     <>
       {/* Backdrop */}
-      {(active || !!cardPlace) && (
+      {active && (
         <div onClick={() => { dismiss(); closeCard(); }} style={{
           position: 'absolute', inset: 0, zIndex: 158,
           background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(2px)',

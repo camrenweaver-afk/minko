@@ -3239,7 +3239,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
     (!filterCategory || e.category === filterCategory) &&
     (!filterRating || e.rating >= filterRating)
   );
-  const pins = filteredFriendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }));
+  const catColors = window.MINKO_CATEGORY_COLORS || {};
+  const pins = filteredFriendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: catColors[e.category] || accent }));
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';

@@ -18,6 +18,11 @@ function lonLatToCoords(lon, lat) {
   return { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 };
 }
 
+const COLLECTION_PALETTE = [
+  '#4f5bd5','#e1306c','#f77737','#fcaf45','#2ec4b6',
+  '#a29bfe','#fd79a8','#00b894','#e17055','#0984e3',
+];
+
 function mapboxCategoryToMinko(categories) {
   const cats = (Array.isArray(categories) ? categories.join(' ') : String(categories || '')).toLowerCase();
   if (/restaurant|food|cafe|bar|bistro|brasserie/.test(cats)) return 'restaurant';
@@ -361,7 +366,7 @@ function DeleteConfirmSheet({ entry, tableKind, dark, accent, onClose, onConfirm
 // ─────────────────────────────────────────────────────────────
 // WISHLIST ITEM SHEET — full view of a wishlist item
 // ─────────────────────────────────────────────────────────────
-function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, onUpdated }) {
+function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, onUpdated, collections = [] }) {
   const [localItem, setLocalItem] = useState2(item || {});
   const [showEdit, setShowEdit] = useState2(false);
   const [showPhotos, setShowPhotos] = useState2(false);
@@ -371,6 +376,13 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   if (!item) return null;
 
   const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[localItem.category]) || accent;
+
+  const assignCollection = async (id) => {
+    const updated = { ...localItem, collection_id: id };
+    setLocalItem(updated);
+    await window.sb.from('wishlist').update({ collection_id: id }).eq('id', localItem.id);
+    if (onUpdated) onUpdated(updated);
+  };
 
   const setRating = async (r) => {
     const newRating = (r === localItem.rating) ? null : r;
@@ -437,6 +449,38 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
               fontFamily: SANS, fontSize: 12.5, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)' }}>
               <MinkoIcon name="pin" size={13} color={catColor} strokeWidth={2}/>
               {localItem.location}
+            </div>
+          )}
+
+          {/* Collection assignment */}
+          {collections.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase',
+                color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Collection</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                <button onClick={() => assignCollection(null)} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px',
+                  borderRadius: 99, border: localItem.collection_id ? `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.14)'}` : `1.5px solid ${accent}`,
+                  background: localItem.collection_id ? 'transparent' : `${accent}18`,
+                  cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
+                  color: localItem.collection_id ? (dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)') : accent,
+                }}>None</button>
+                {collections.map(c => {
+                  const active = localItem.collection_id === c.id;
+                  return (
+                    <button key={c.id} onClick={() => assignCollection(c.id)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px 0 8px',
+                      borderRadius: 99, border: active ? `1.5px solid ${c.color}` : `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.14)'}`,
+                      background: active ? `${c.color}22` : 'transparent',
+                      cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600,
+                      color: active ? c.color : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.6)'),
+                    }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }}/>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1373,24 +1417,42 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
 // PROFILE SCREEN
 // ─────────────────────────────────────────────────────────────
 
-// Wishlist overlay — fetches real data, manages its own add sheet inline
+// Wishlist overlay — collections, map view, and item management
 function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemAdded }) {
   const [items, setItems] = useState2([]);
+  const [collections, setCollections] = useState2([]);
   const [fetching, setFetching] = useState2(false);
+  const [tab, setTab] = useState2('list');
+  const [activeCollection, setActiveCollection] = useState2(null);
   const [showAdd, setShowAdd] = useState2(false);
+  const [showNewCollection, setShowNewCollection] = useState2(false);
+  const [newCollName, setNewCollName] = useState2('');
+  const [newCollColor, setNewCollColor] = useState2(COLLECTION_PALETTE[0]);
+  const [savingColl, setSavingColl] = useState2(false);
   const [activeItem, setActiveItem] = useState2(null);
 
   const refetch = () => {
     if (!user) return;
-    window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      .then(({ data }) => setItems(data || []));
+    Promise.all([
+      window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      window.sb.from('wishlist_collections').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ]).then(([{ data: wData }, { data: cData }]) => {
+      setItems(wData || []);
+      setCollections(cData || []);
+    });
   };
 
   useEffect2(() => {
     if (!open || !user) return;
     setFetching(true);
-    window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-      .then(({ data }) => { setItems(data || []); setFetching(false); });
+    Promise.all([
+      window.sb.from('wishlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      window.sb.from('wishlist_collections').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ]).then(([{ data: wData }, { data: cData }]) => {
+      setItems(wData || []);
+      setCollections(cData || []);
+      setFetching(false);
+    });
   }, [open, refreshKey]);
 
   const handleAdded = () => {
@@ -1410,63 +1472,203 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
     if (onItemAdded) onItemAdded();
   };
 
+  const handleCreateCollection = async () => {
+    if (!newCollName.trim()) return;
+    setSavingColl(true);
+    await window.sb.from('wishlist_collections').insert({ user_id: user.id, name: newCollName.trim(), color: newCollColor });
+    setSavingColl(false);
+    setNewCollName('');
+    setNewCollColor(COLLECTION_PALETTE[0]);
+    setShowNewCollection(false);
+    refetch();
+  };
+
   const catColor = (cat) => (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[cat]) || accent;
+
+  // Items shown in current view
+  const visibleItems = activeCollection
+    ? items.filter(w => w.collection_id === activeCollection.id)
+    : items.filter(w => !w.collection_id);
+
+  const pins = items.filter(w => w.lat && w.lon).map(w => ({
+    id: w.id, lon: w.lon, lat: w.lat, color: accent,
+    photo: (w.photos && w.photos[0]) || null,
+  }));
+
+  const SectionLabel = ({ children }) => (
+    <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.8,
+      textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.38)' : 'rgba(20,20,30,0.38)',
+      margin: '20px 0 10px' }}>{children}</div>
+  );
+
+  const ItemRow = ({ w }) => (
+    <button onClick={() => setActiveItem(w)} style={{
+      display: 'flex', gap: 12, padding: 14, borderRadius: 16, marginBottom: 8, width: '100%',
+      background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+      border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.05)',
+      cursor: 'pointer', textAlign: 'left',
+    }}>
+      <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+        background: dark ? 'rgba(255,255,255,0.06)' : `${catColor(w.category)}18`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <MinkoIcon name={w.category} size={22} color={catColor(w.category)} strokeWidth={1.4}/>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+        <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.15,
+          color: dark ? '#f5f1e8' : '#1a1a2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.place}</div>
+        {w.location && <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.location}</div>}
+        {w.rating > 0 && <div style={{ marginTop: 4 }}><Stars n={w.rating} size={12}/></div>}
+        {!w.rating && w.note && <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{w.note}&rdquo;</div>}
+      </div>
+      <MinkoIcon name="chevron-right" size={16} color={dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)'} strokeWidth={2}/>
+    </button>
+  );
 
   return (
     <SlideOverlay open={open} onBack={onBack} dark={dark} title="Wishlist">
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {/* Scrollable list */}
-        <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '12px 16px 100px' }}>
-          {fetching && (
-            <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Loading…</div>
-          )}
-          {!fetching && items.length === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 32px', gap: 12, textAlign: 'center' }}>
-              <MinkoIcon name="bookmark" size={38} color={accent} strokeWidth={1.3}/>
-              <div style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, letterSpacing: -0.3, color: dark ? '#f5f1e8' : '#1a1a2e' }}>No saved places yet</div>
-              <div style={{ fontFamily: SANS, fontSize: 14, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55 }}>Tap + to save a place you want to visit</div>
-              <button onClick={() => setShowAdd(true)} style={{
-                marginTop: 8, height: 46, padding: '0 24px', borderRadius: 12, border: 0, cursor: 'pointer',
-                background: accent, color: 'white', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
-                boxShadow: `0 4px 14px ${accent}44`,
-              }}>Add your first place</button>
-            </div>
-          )}
-          {items.map(w => (
-            <button key={w.id} onClick={() => setActiveItem(w)} style={{
-              display: 'flex', gap: 12, padding: 14, borderRadius: 16, marginBottom: 8, width: '100%',
-              background: dark ? 'rgba(255,255,255,0.04)' : 'white',
-              border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.05)',
-              cursor: 'pointer', textAlign: 'left',
-            }}>
-              <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                background: dark ? 'rgba(255,255,255,0.06)' : `${catColor(w.category)}18`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MinkoIcon name={w.category} size={22} color={catColor(w.category)} strokeWidth={1.4}/>
-              </div>
-              <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-                <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.15,
-                  color: dark ? '#f5f1e8' : '#1a1a2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.place}</div>
-                {w.location && <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.location}</div>}
-                {w.rating > 0 && <div style={{ marginTop: 4 }}><Stars n={w.rating} size={12}/></div>}
-                {!w.rating && w.note && <div style={{ fontFamily: SERIF, fontSize: 13, fontStyle: 'italic', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{w.note}&rdquo;</div>}
-              </div>
-              <MinkoIcon name="chevron-right" size={16} color={dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.2)'} strokeWidth={2}/>
-            </button>
-          ))}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Map / List tab toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', flexShrink: 0 }}>
+          <div style={{ display: 'inline-flex', borderRadius: 99, padding: 3,
+            background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)' }}>
+            {['list','map'].map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '6px 22px', borderRadius: 99, border: 0, cursor: 'pointer',
+                fontFamily: SANS, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.1,
+                background: tab === t ? (dark ? 'rgba(255,255,255,0.12)' : 'white') : 'transparent',
+                color: tab === t ? (dark ? '#f5f1e8' : '#1a1a2e') : (dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)'),
+                boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                transition: 'all 0.18s',
+                textTransform: 'capitalize',
+              }}>{t}</button>
+            ))}
+          </div>
         </div>
 
-        {/* FAB */}
-        <button onClick={() => setShowAdd(true)} style={{
-          position: 'absolute', right: 20, bottom: 28, width: 52, height: 52,
-          borderRadius: '50%', border: 0, cursor: 'pointer',
-          background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 4px 18px ${accent}55`,
-        }}>
-          <MinkoIcon name="plus" size={24} color="white" strokeWidth={2.2}/>
-        </button>
+        {/* MAP TAB */}
+        {tab === 'map' && (
+          <div style={{ flex: 1, position: 'relative' }}>
+            {pins.length > 0 ? (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <MinkoGlobe
+                  pins={pins} dark={dark} accent={accent}
+                  scrollable={true} fitToPins={true}
+                  onPinClick={(id) => setActiveItem(items.find(w => w.id === id))}
+                />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                height: '100%', gap: 10, padding: '0 40px', textAlign: 'center' }}>
+                <MinkoIcon name="globe" size={36} color={dark ? 'rgba(255,255,255,0.25)' : 'rgba(20,20,30,0.2)'} strokeWidth={1.3}/>
+                <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2 }}>No locations yet</div>
+                <div style={{ fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', lineHeight: 1.5 }}>Places with a pin on the map will appear here</div>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Add sheet */}
+        {/* LIST TAB */}
+        {tab === 'list' && (
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '4px 16px 100px' }}>
+              {fetching && (
+                <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Loading…</div>
+              )}
+
+              {/* Collection drilldown header */}
+              {activeCollection && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingTop: 4 }}>
+                  <button onClick={() => setActiveCollection(null)} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 14px 7px 10px',
+                    borderRadius: 99, border: 0, cursor: 'pointer',
+                    background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
+                    fontFamily: SANS, fontSize: 14, fontWeight: 600,
+                    color: dark ? '#f5f1e8' : '#1a1a2e',
+                  }}>
+                    <MinkoIcon name="chevron-right" size={18} strokeWidth={2.2} color={dark ? '#f5f1e8' : '#1a1a2e'} style={{ transform: 'rotate(180deg)', display: 'block' }}/>
+                    All collections
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: activeCollection.color, display: 'inline-block' }}/>
+                    <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2 }}>{activeCollection.name}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Top-level: Collections grid */}
+              {!activeCollection && !fetching && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <SectionLabel>Collections</SectionLabel>
+                    <button onClick={() => setShowNewCollection(true)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                      borderRadius: 99, border: `1px solid ${accent}55`,
+                      background: `${accent}12`, cursor: 'pointer',
+                      fontFamily: SANS, fontSize: 12, fontWeight: 600, color: accent,
+                    }}>
+                      <MinkoIcon name="plus" size={12} color={accent} strokeWidth={2.5}/>
+                      New
+                    </button>
+                  </div>
+
+                  {collections.length === 0 ? (
+                    <div style={{ fontFamily: SANS, fontSize: 13, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)', marginBottom: 6 }}>
+                      No collections yet — tap New to create one
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 }}>
+                      {collections.map(c => {
+                        const count = items.filter(w => w.collection_id === c.id).length;
+                        return (
+                          <button key={c.id} onClick={() => setActiveCollection(c)} style={{
+                            textAlign: 'left', border: 0, cursor: 'pointer', borderRadius: 16, overflow: 'hidden',
+                            background: dark ? 'rgba(255,255,255,0.05)' : 'white',
+                            boxShadow: dark ? 'none' : '0 1px 6px rgba(20,30,60,0.07)',
+                            outline: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)'}`,
+                          }}>
+                            <div style={{ height: 8, background: c.color }}/>
+                            <div style={{ padding: '10px 12px 12px' }}>
+                              <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15 }}>{c.name}</div>
+                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', marginTop: 4 }}>{count} {count === 1 ? 'place' : 'places'}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <SectionLabel>Saved Places</SectionLabel>
+                </>
+              )}
+
+              {/* Items list */}
+              {!fetching && visibleItems.length === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 12, textAlign: 'center' }}>
+                  <MinkoIcon name="bookmark" size={34} color={accent} strokeWidth={1.3}/>
+                  <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, letterSpacing: -0.3, color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+                    {activeCollection ? 'No places in this collection' : 'No saved places yet'}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55 }}>Tap + to save a place you want to visit</div>
+                </div>
+              )}
+
+              {visibleItems.map(w => <ItemRow key={w.id} w={w}/>)}
+            </div>
+
+            {/* FAB */}
+            <button onClick={() => setShowAdd(true)} style={{
+              position: 'absolute', right: 20, bottom: 28, width: 52, height: 52,
+              borderRadius: '50%', border: 0, cursor: 'pointer',
+              background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 4px 18px ${accent}55`,
+            }}>
+              <MinkoIcon name="plus" size={24} color="white" strokeWidth={2.2}/>
+            </button>
+          </div>
+        )}
+
+        {/* Add item bottom sheet */}
         {showAdd && (
           <div onClick={() => setShowAdd(false)} style={{
             position: 'absolute', inset: 0, zIndex: 10,
@@ -1493,12 +1695,80 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
           />
         </div>
 
+        {/* New Collection bottom sheet */}
+        {showNewCollection && (
+          <div onClick={() => setShowNewCollection(false)} style={{
+            position: 'absolute', inset: 0, zIndex: 12,
+            background: 'rgba(15,20,40,0.22)', backdropFilter: 'blur(2px)',
+          }}/>
+        )}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 13,
+          background: dark ? '#1c1d28' : '#faf8f3',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+          transform: showNewCollection ? 'translateY(0)' : 'translateY(110%)',
+          transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+          padding: '0 0 40px',
+          pointerEvents: showNewCollection ? 'auto' : 'none',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+            <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+          </div>
+          <div style={{ padding: '12px 20px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>New Collection</span>
+              <button onClick={() => setShowNewCollection(false)} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
+                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+                <MinkoIcon name="close" size={16} strokeWidth={2}/>
+              </button>
+            </div>
+
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase',
+              color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Name</div>
+            <input
+              value={newCollName}
+              onChange={e => setNewCollName(e.target.value)}
+              placeholder="e.g. Tokyo, Paris Trip…"
+              style={{
+                width: '100%', height: 48, borderRadius: 12, padding: '0 14px', boxSizing: 'border-box',
+                fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
+                background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)',
+                border: dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(20,30,60,0.1)',
+                outline: 'none', marginBottom: 20,
+              }}
+            />
+
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase',
+              color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginBottom: 10 }}>Color</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
+              {COLLECTION_PALETTE.map(col => (
+                <button key={col} onClick={() => setNewCollColor(col)} style={{
+                  width: 34, height: 34, borderRadius: '50%', border: newCollColor === col ? `3px solid ${dark ? '#f5f1e8' : '#1a1a2e'}` : '3px solid transparent',
+                  background: col, cursor: 'pointer', padding: 0,
+                  boxShadow: newCollColor === col ? `0 0 0 1.5px ${col}` : 'none',
+                  transition: 'border 0.15s',
+                }}/>
+              ))}
+            </div>
+
+            <button onClick={handleCreateCollection} disabled={!newCollName.trim() || savingColl} style={{
+              width: '100%', height: 50, borderRadius: 14, border: 0, cursor: 'pointer',
+              background: accent, color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600,
+              opacity: (!newCollName.trim() || savingColl) ? 0.55 : 1,
+              boxShadow: `0 4px 14px ${accent}44`,
+            }}>{savingColl ? 'Creating…' : 'Create'}</button>
+          </div>
+        </div>
+
         {/* Wishlist item detail — nested slide overlay */}
         <WishlistItemSheet
           item={activeItem}
           open={!!activeItem}
           onBack={() => setActiveItem(null)}
           dark={dark} accent={accent} user={user}
+          collections={collections}
           onDeleted={handleItemDeleted}
           onUpdated={handleItemUpdated}
         />

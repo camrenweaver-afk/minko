@@ -197,7 +197,7 @@ function App() {
   const navProps = {
     active: screen,
     onChange: (s) => { setScreen(s); resetSheets(); },
-    hideNav: !user || showLogPicker || showLocationPicker || showLog || showEdit || showDetail || showWishlistAdd || showAddPhoto || showDeleteConfirm || showFriendProfile || showNotifications,
+    hideNav: !user || showLogPicker || showLocationPicker || showLog || showEdit || showDetail || showWishlistAdd || showAddPhoto || showDeleteConfirm || showFriendProfile || showNotifications || showLongPressAction,
   };
 
   const activeEntry = entries.find(e => e.id === activePin);

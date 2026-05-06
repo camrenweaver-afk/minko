@@ -48,7 +48,7 @@
 <script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=16"></script>
 <script type="text/babel" src="screens.jsx?v=30"></script>
-<script type="text/babel" src="flows.jsx?v=56"></script>
+<script type="text/babel" src="flows.jsx?v=57"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=8"></script>
 
@@ -107,6 +107,10 @@ function App() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [entries, setEntries] = useState([]);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [drafts, setDrafts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('minko_drafts') || '[]'); } catch { return []; }
+  });
+  const [activeDraft, setActiveDraft] = useState(null);
 
   useEffect(() => {
     const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
@@ -155,6 +159,27 @@ function App() {
     if (!user) return;
     window.sb.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       .then(({ count }) => setWishlistCount(count || 0));
+  };
+
+  const saveDraft = (draftData) => {
+    setDrafts(prev => {
+      const updated = [draftData, ...prev.filter(d => d.id !== draftData.id)];
+      try { localStorage.setItem('minko_drafts', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
+  };
+  const deleteDraft = (id) => {
+    setDrafts(prev => {
+      const updated = prev.filter(d => d.id !== id);
+      try { localStorage.setItem('minko_drafts', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
+  };
+  const resumeDraft = (draft) => {
+    setActiveDraft(draft);
+    setLogPickerPlace(draft.place);
+    setLogKey(k => k + 1);
+    setShowLog(true);
   };
 
   const handleWishlistAdded = () => {
@@ -297,6 +322,9 @@ function App() {
               wishlistRefreshKey={wishlistRefreshKey}
               onWishlistItemAdded={refreshWishlistCount}
               friendsRefreshKey={friendsRefreshKey}
+              drafts={drafts}
+              onResumeDraft={resumeDraft}
+              onDeleteDraft={deleteDraft}
             />
           )}
 
@@ -369,13 +397,16 @@ function App() {
           )}
 
           {/* Log entry flow (steps 2+3, after location is picked) */}
-          <BottomSheet open={showLog} onClose={() => setShowLog(false)} dark={dark}>
+          <BottomSheet open={showLog} onClose={() => { setShowLog(false); setActiveDraft(null); }} dark={dark}>
             <LogEntryFlow key={logKey}
               dark={dark} accent={accent} user={user}
               initialPlace={logPickerPlace}
-              onClose={() => setShowLog(false)}
-              onConfirm={() => { setShowLog(false); refreshEntries(); }}
-              onBackToPicker={() => { setShowLog(false); setShowLocationPicker(true); }}
+              initialDraft={activeDraft}
+              onClose={() => { setShowLog(false); setActiveDraft(null); }}
+              onConfirm={() => { setShowLog(false); setActiveDraft(null); refreshEntries(); }}
+              onBackToPicker={() => { setShowLog(false); setActiveDraft(null); setShowLocationPicker(true); }}
+              onSaveDraft={saveDraft}
+              onDraftDeleted={deleteDraft}
             />
           </BottomSheet>
 

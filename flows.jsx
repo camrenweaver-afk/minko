@@ -1134,22 +1134,37 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
 // ─────────────────────────────────────────────────────────────
 // LOG ENTRY FLOW (steps 2+3 — rendered after LocationPickerScreen confirms)
 // ─────────────────────────────────────────────────────────────
-function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker, initialCategory = null }) {
+function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker, initialCategory = null, initialDraft = null, onSaveDraft = null, onDraftDeleted = null }) {
   // initialPlace is always provided (place was chosen in LocationPickerScreen at App level)
-  const [step, setStep] = useState2(2);
-  const [place, setPlace] = useState2(initialPlace);
-  const [category, setCategory] = useState2(initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null));
-  const [rating, setRating] = useState2(0);
-  const [note, setNote] = useState2('');
-  const [links, setLinks] = useState2([]);
+  // If initialDraft is provided, all fields are seeded from it (resume flow)
+  const [step, setStep] = useState2(initialDraft?.step ?? 2);
+  const [place, setPlace] = useState2(initialDraft?.place ?? initialPlace);
+  const [category, setCategory] = useState2(initialDraft?.category ?? (initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null)));
+  const [rating, setRating] = useState2(initialDraft?.rating ?? 0);
+  const [note, setNote] = useState2(initialDraft?.note ?? '');
+  const [links, setLinks] = useState2(initialDraft?.links ?? []);
   const [linkInput, setLinkInput] = useState2('');
   // pendingFiles holds {file, preview} objects — photos are NOT uploaded until submit
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
-  const [dateVisited, setDateVisited] = useState2('');
-  const [isPrivate, setIsPrivate] = useState2(false);
+  const [dateVisited, setDateVisited] = useState2(initialDraft?.dateVisited ?? '');
+  const [isPrivate, setIsPrivate] = useState2(initialDraft?.isPrivate ?? false);
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
+
+  // Auto-save a draft to localStorage when the user closes mid-flow with meaningful input
+  const handleClose = () => {
+    const hasMeaningfulInput = place && (category || step > 2 || rating > 0 || note.trim() || links.length > 0);
+    if (hasMeaningfulInput && onSaveDraft) {
+      onSaveDraft({
+        id: initialDraft?.id || ('draft-' + Date.now()),
+        place, category, step, rating,
+        note: note.trim(), links, dateVisited, isPrivate,
+        saved_at: new Date().toISOString(),
+      });
+    }
+    onClose();
+  };
 
   return (
     <div style={{ padding: '4px 0 32px', minHeight: 480 }}>
@@ -1163,7 +1178,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             Step {step} of 3
           </span>
         </div>
-        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
+        <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
           background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: dark ? '#f5f1e8' : '#1a1a2e' }}>
@@ -1418,6 +1433,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
               console.error('submit error', err);
             }
             setSubmitting(false);
+            if (initialDraft?.id && onDraftDeleted) onDraftDeleted(initialDraft.id);
             onConfirm();
           }}
           style={{
@@ -2637,7 +2653,7 @@ function EditProfileSheet({ user, dark, accent, onClose, onSignOut, onSaved }) {
   );
 }
 
-function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded, friendsRefreshKey = 0 }) {
+function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entries = [], user = null, wishlistCount = 0, wishlistRefreshKey = 0, onWishlistItemAdded, friendsRefreshKey = 0, drafts = [], onResumeDraft, onDeleteDraft }) {
   const [showWishlist, setShowWishlist] = useState2(false);
   const [showSettings, setShowSettings] = useState2(false);
   const [showReviews, setShowReviews] = useState2(false);
@@ -2785,6 +2801,53 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           <div style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', letterSpacing: 0.2 }}>{wishlistCount} {wishlistCount === 1 ? 'saved place' : 'saved places'}</div>
         </button>
       </div>
+
+      {/* Drafts section */}
+      {drafts.length > 0 && (
+        <>
+          <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', fontStyle: 'italic' }}>Drafts</div>
+            <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC }}>{drafts.length} unfinished</span>
+          </div>
+          <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {drafts.map(d => (
+              <div key={d.id} onClick={() => onResumeDraft?.(d)} style={{
+                display: 'flex', gap: 12, padding: 12, borderRadius: 14, alignItems: 'center',
+                background: dark ? 'rgba(255,255,255,0.04)' : 'white',
+                border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
+                cursor: 'pointer',
+              }}>
+                <div style={{ width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <MinkoIcon name={d.category || 'pin'} size={20} color={accent} strokeWidth={1.4}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {d.place?.name || 'Unnamed place'}
+                  </div>
+                  <div style={{ fontFamily: SANS, fontSize: 12, color: mutedC, marginTop: 2 }}>
+                    {(MINKO_CATEGORIES.find(c => c.id === d.category)?.label) || 'No category'} · Step {d.step} of 3
+                  </div>
+                  {d.note && (
+                    <div style={{ fontFamily: SERIF, fontSize: 13, color: mutedC, marginTop: 3, fontStyle: 'italic',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.note}</div>
+                  )}
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); onDeleteDraft?.(d.id); }} style={{
+                  width: 28, height: 28, borderRadius: '50%', border: 0, cursor: 'pointer', flexShrink: 0,
+                  background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)',
+                }}>
+                  <MinkoIcon name="trash" size={14} strokeWidth={2}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Top rated */}
       <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>

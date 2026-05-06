@@ -670,6 +670,8 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [likers, setLikers] = useState([]);
+  const [showLikers, setShowLikers] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
@@ -678,18 +680,24 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   useEffect(() => {
     setLiked(false);
     setLikeCount(0);
+    setLikers([]);
+    setShowLikers(false);
     setComments([]);
     setCommentDraft('');
     if (!entry?.id || !window.sb) return;
 
-    // Fetch like count + whether current user liked this entry
-    const likesQ = window.sb.from('entry_likes').select('user_id').eq('entry_id', entry.id);
+    // Fetch likes with profile info + whether current user liked this entry
+    const likesQ = window.sb.from('entry_likes')
+      .select('user_id, profiles(display_name, avatar_url)')
+      .eq('entry_id', entry.id);
     const myLikeQ = user?.id
       ? window.sb.from('entry_likes').select('id').eq('entry_id', entry.id).eq('user_id', user.id).maybeSingle()
       : Promise.resolve({ data: null });
 
     Promise.all([likesQ, myLikeQ]).then(([all, mine]) => {
-      setLikeCount((all.data || []).length);
+      const allLikers = all.data || [];
+      setLikers(allLikers);
+      setLikeCount(allLikers.length);
       setLiked(!!mine.data);
     });
 
@@ -712,8 +720,15 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
     setLikeCount(c => c + (wasLiked ? -1 : 1));
     if (wasLiked) {
       await window.sb.from('entry_likes').delete().eq('entry_id', entry.id).eq('user_id', user.id);
+      setLikers(prev => prev.filter(l => l.user_id !== user.id));
     } else {
       await window.sb.from('entry_likes').insert({ entry_id: entry.id, user_id: user.id });
+      // Optimistically add current user to likers list
+      const myProfile = { user_id: user.id, profiles: {
+        display_name: user.user_metadata?.full_name || user.email || 'You',
+        avatar_url: user.user_metadata?.avatar_url || null,
+      }};
+      setLikers(prev => [...prev, myProfile]);
     }
     setLikeLoading(false);
   };
@@ -733,8 +748,60 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   const photos = entry.photos?.length ? entry.photos : [];
   const openLightbox = (i) => setLightboxIndex(i);
 
+  const textC = dark ? '#f5f1e8' : '#1a1a2e';
+  const mutedC = dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)';
+
   return (
-    <div style={{ padding: '6px 0 24px' }}>
+    <div style={{ padding: '6px 0 24px', position: 'relative' }}>
+
+      {/* Who liked this panel */}
+      {showLikers && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 10,
+          background: dark ? '#1c1d28' : '#faf8f3',
+          display: 'flex', flexDirection: 'column',
+          animation: 'minko-slide-up 0.2s ease',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '18px 20px 14px',
+            borderBottom: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)',
+          }}>
+            <button onClick={() => setShowLikers(false)} style={{
+              width: 32, height: 32, borderRadius: '50%', border: 0, cursor: 'pointer',
+              background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: textC,
+            }}>
+              <MinkoIcon name="close" size={14} strokeWidth={2.2}/>
+            </button>
+            <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: textC }}>
+              {likeCount} {likeCount === 1 ? 'Like' : 'Likes'}
+            </span>
+          </div>
+          {/* Likers list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px' }}>
+            {likers.length === 0 && (
+              <div style={{ padding: '24px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No likes yet</div>
+            )}
+            {likers.map((l, i) => {
+              const name = l.profiles?.display_name || 'User';
+              const avatar = l.profiles?.avatar_url;
+              return (
+                <div key={l.user_id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0',
+                  borderBottom: i < likers.length - 1
+                    ? (dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.06)')
+                    : 'none',
+                }}>
+                  <Avatar name={name} color="#7a6ca3" size={36} src={avatar}/>
+                  <span style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 500, color: textC }}>{name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox photos={photos} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)}/>
@@ -855,19 +922,31 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
         <div style={{ marginTop: 20, paddingTop: 18,
           borderTop: dark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(20,30,60,0.07)' }}>
 
-          {/* Like button */}
-          <button onClick={toggleLike} disabled={!user?.id} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            padding: '7px 14px 7px 10px', borderRadius: 999, cursor: user?.id ? 'pointer' : 'default',
-            border: liked ? `1px solid ${catColor}` : (dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)'),
-            background: liked ? `${catColor}18` : 'transparent',
-            color: liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e'),
-            fontFamily: SANS, fontSize: 13, fontWeight: 600,
-            transition: 'all 0.15s ease',
-          }}>
-            <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.8}/>
-            {likeCount > 0 ? likeCount : ''} {likeCount === 1 ? 'like' : likeCount > 1 ? 'likes' : 'Like'}
-          </button>
+          {/* Like button + tappable count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={toggleLike} disabled={!user?.id} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '7px 14px 7px 10px', borderRadius: 999, cursor: user?.id ? 'pointer' : 'default',
+              border: liked ? `1px solid ${catColor}` : (dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)'),
+              background: liked ? `${catColor}18` : 'transparent',
+              color: liked ? catColor : textC,
+              fontFamily: SANS, fontSize: 13, fontWeight: 600,
+              transition: 'all 0.15s ease',
+            }}>
+              <MinkoIcon name={liked ? 'heart-filled' : 'heart'} size={15} color={liked ? catColor : textC} strokeWidth={1.8}/>
+              {likeCount === 0 ? 'Like' : liked ? 'Liked' : 'Like'}
+            </button>
+            {likeCount > 0 && (
+              <button onClick={() => setShowLikers(true)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '4px 8px', borderRadius: 999,
+                fontFamily: SANS, fontSize: 13, fontWeight: 500, color: mutedC,
+                transition: 'color 0.15s',
+              }}>
+                {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+              </button>
+            )}
+          </div>
 
           {/* Existing comments */}
           {comments.length > 0 && (

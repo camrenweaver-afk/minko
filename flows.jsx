@@ -1517,7 +1517,7 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   // Items shown in current view
   const visibleItems = activeCollection
     ? items.filter(w => w.collection_id === activeCollection.id)
-    : items.filter(w => !w.collection_id);
+    : items;
 
   const pins = items.filter(w => w.lat && w.lon).map(w => ({
     id: w.id, lon: w.lon, lat: w.lat, color: accent,

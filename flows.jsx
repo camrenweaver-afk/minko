@@ -1152,19 +1152,34 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
 
-  // Auto-save a draft to localStorage when the user closes mid-flow with meaningful input
-  const handleClose = () => {
-    const hasMeaningfulInput = place && (category || step > 2 || rating > 0 || note.trim() || links.length > 0);
-    if (hasMeaningfulInput && onSaveDraft) {
-      onSaveDraft({
-        id: initialDraft?.id || ('draft-' + Date.now()),
-        place, category, step, rating,
-        note: note.trim(), links, dateVisited, isPrivate,
+  // Refs so the unmount cleanup can always read the latest state / callbacks
+  const stateRef = useRef2(null);
+  const submittedRef = useRef2(false);  // true after a successful submit
+  const cancelledRef = useRef2(false);  // true when Back→location picker is tapped
+  const onSaveDraftRef = useRef2(onSaveDraft);
+  const initialDraftIdRef = useRef2(initialDraft?.id || null);
+  useEffect2(() => { stateRef.current = { place, category, step, rating, note, links, dateVisited, isPrivate }; });
+  useEffect2(() => { onSaveDraftRef.current = onSaveDraft; });
+
+  // Save draft on ANY unmount (× button, backdrop tap, etc.) unless submitted or going back to picker
+  useEffect2(() => {
+    return () => {
+      if (submittedRef.current || cancelledRef.current || !onSaveDraftRef.current) return;
+      const s = stateRef.current;
+      if (!s) return;
+      const hasMeaningfulInput = s.place && (s.category || s.step > 2 || s.rating > 0 || (s.note && s.note.trim()) || s.links.length > 0);
+      if (!hasMeaningfulInput) return;
+      onSaveDraftRef.current({
+        id: initialDraftIdRef.current || ('draft-' + Date.now()),
+        place: s.place, category: s.category, step: s.step, rating: s.rating,
+        note: s.note ? s.note.trim() : '', links: s.links,
+        dateVisited: s.dateVisited, isPrivate: s.isPrivate,
         saved_at: new Date().toISOString(),
       });
-    }
-    onClose();
-  };
+    };
+  }, []); // eslint-disable-line
+
+  const handleClose = () => onClose();
 
   return (
     <div style={{ padding: '4px 0 32px', minHeight: 480 }}>
@@ -1389,7 +1404,12 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
 
       {/* Footer buttons */}
       <div style={{ display: 'flex', gap: 10, padding: '20px 20px 0' }}>
-        <button onClick={() => step === 2 ? (onBackToPicker ? onBackToPicker() : onClose()) : setStep(step - 1)} style={{
+        <button onClick={() => {
+          if (step === 2) {
+            if (onBackToPicker) { cancelledRef.current = true; onBackToPicker(); }
+            else onClose();
+          } else { setStep(step - 1); }
+        }} style={{
           height: 50, padding: '0 18px', borderRadius: 12, cursor: 'pointer',
           background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)', border: 0,
           color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
@@ -1433,6 +1453,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
               console.error('submit error', err);
             }
             setSubmitting(false);
+            submittedRef.current = true;
             if (initialDraft?.id && onDraftDeleted) onDraftDeleted(initialDraft.id);
             onConfirm();
           }}

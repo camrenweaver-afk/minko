@@ -86,6 +86,7 @@ function App() {
   const [logPickerPlace, setLogPickerPlace] = useState(null);
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
   const [wishlistInitialPlace, setWishlistInitialPlace] = useState(null);
+  const [wishlistInitialCategory, setWishlistInitialCategory] = useState(null);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
@@ -306,6 +307,12 @@ function App() {
               onDelete={!isFriendMode ? () => setShowDeleteConfirm(true) : undefined}
               onPhotosChanged={!isFriendMode ? () => { setPhotoKey(k => k + 1); setShowAddPhoto(true); } : undefined}
               onFriendProfile={isFriendMode && activeFriend ? () => setShowFriendProfile(true) : undefined}
+              onSaveWishlist={isFriendMode ? (entry) => {
+                setShowDetail(false);
+                setWishlistInitialPlace({ name: entry.place, sub: entry.location, lon: entry.lon, lat: entry.lat });
+                setWishlistInitialCategory(entry.category);
+                setShowWishlistAdd(true);
+              } : undefined}
             />
           </BottomSheet>
 
@@ -341,13 +348,14 @@ function App() {
           </BottomSheet>
 
           {/* Wishlist add flow */}
-          <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); }} dark={dark}>
+          <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); }} dark={dark}>
             <SaveToWishlistFlow
               key={wishlistInitialPlace?.id || 'wish'}
               dark={dark} accent={accent}
               user={user}
               initialPlace={wishlistInitialPlace}
-              onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); }}
+              initialCategory={wishlistInitialCategory}
+              onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); }}
               onConfirm={handleWishlistAdded}
             />
           </BottomSheet>

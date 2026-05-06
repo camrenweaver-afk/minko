@@ -287,7 +287,7 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 // ─────────────────────────────────────────────────────────────
 // Top search bar (floats over map) — full Mapbox search + place card
 // ─────────────────────────────────────────────────────────────
-function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist, onNotifications }) {
+function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist, onNotifications, onPlaceSelected }) {
   const [active, setActive]         = useState(false);
   const [query, setQuery]           = useState('');
   const [results, setResults]       = useState([]);
@@ -332,7 +332,9 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
       const lon  = feat?.geometry?.coordinates[0] ?? null;
       const lat  = feat?.geometry?.coordinates[1] ?? null;
       const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
-      setCardPlace({ ...r, lon, lat, coords, isCustom: false });
+      const place = { ...r, lon, lat, coords, isCustom: false };
+      setCardPlace(place);
+      if (lon != null) onPlaceSelected?.({ lon, lat });
     } catch {
       setCardPlace({ ...r, lon: null, lat: null, coords: null, isCustom: false });
     }
@@ -340,7 +342,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
   };
 
   const dismiss    = () => { setActive(false); setQuery(''); setResults([]); };
-  const closeCard  = () => { setCardPlace(null); setQuery(''); };
+  const closeCard  = () => { setCardPlace(null); setQuery(''); onPlaceSelected?.(null); };
   const handleLog  = () => { if (!cardPlace) return; onLogReview?.(cardPlace);     closeCard(); };
   const handleWish = () => { if (!cardPlace) return; onSaveWishlist?.(cardPlace);  closeCard(); };
 
@@ -352,7 +354,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
       {/* Backdrop */}
       {(active || !!cardPlace) && (
         <div onClick={() => { dismiss(); closeCard(); }} style={{
-          position: 'absolute', inset: 0, zIndex: 34,
+          position: 'absolute', inset: 0, zIndex: 158,
           background: 'rgba(0,0,0,0.22)', backdropFilter: 'blur(2px)',
           animation: 'minko-fade-in 0.15s ease',
         }}/>
@@ -362,7 +364,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
       <div style={{
         position: 'absolute',
         top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)',
-        left: 12, right: 12, zIndex: 36,
+        left: 12, right: 12, zIndex: 162,
       }}>
         <GlassSurface dark={dark} radius={26} style={{
           height: 52, padding: '0 10px 0 16px',
@@ -447,7 +449,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
       {/* Retrieving indicator */}
       {retrieving && (
         <div style={{
-          position: 'absolute', zIndex: 36,
+          position: 'absolute', zIndex: 162,
           top: 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 70px)',
           left: '50%', transform: 'translateX(-50%)',
           background: dark ? 'rgba(22,24,36,0.92)' : 'rgba(255,255,255,0.92)',
@@ -459,7 +461,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
       {/* Place action card */}
       {cardPlace && (
         <div style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 42,
+          position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 160,
           background: dark ? '#1c1d28' : '#faf8f3',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
           boxShadow: '0 -10px 40px rgba(0,0,0,0.22)',
@@ -541,22 +543,27 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist, onNotifications, onMapLongPress }) {
   const cat = window.MINKO_CATEGORY_COLORS;
-  const pins = entries.filter(e => e.lon && e.lat).map(e => ({
-    id: e.id, lon: e.lon, lat: e.lat,
-    color: cat[e.category] || accent,
-    photo: variant === 'photo' ? e.photos?.[0] : undefined,
-  }));
+  const [searchPin, setSearchPin] = useState(null);
+  const pins = [
+    ...entries.filter(e => e.lon && e.lat).map(e => ({
+      id: e.id, lon: e.lon, lat: e.lat,
+      color: cat[e.category] || accent,
+      photo: variant === 'photo' ? e.photos?.[0] : undefined,
+    })),
+    ...(searchPin ? [{ id: '__search__', lon: searchPin.lon, lat: searchPin.lat, color: accent }] : []),
+  ];
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <MinkoGlobe dark={dark} accent={accent}
         pins={pins}
         activePinId={activePinId}
         onPinClick={onPin}
-        fitToPins={pins.length > 0}
+        fitToPins={pins.length > 0 && !searchPin}
+        centerOn={searchPin}
         onMapLongPress={onMapLongPress}
       />
       <SafeTopBar dark={dark}/>
-      <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications}/>
+      <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications} onPlaceSelected={setSearchPin}/>
       <CategoryLegend dark={dark}/>
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
     </div>

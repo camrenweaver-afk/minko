@@ -2253,6 +2253,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   const [showWishlist, setShowWishlist] = useState2(false);
   const [showSettings, setShowSettings] = useState2(false);
   const [showReviews, setShowReviews] = useState2(false);
+  const [viewingReview, setViewingReview] = useState2(null);
   const [showFriendsList, setShowFriendsList] = useState2(false);
   const [viewingFriend, setViewingFriend] = useState2(null);
   const [avatarUploading, setAvatarUploading] = useState2(false);
@@ -2462,7 +2463,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
             {entries.length === 0 ? (
               <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>No reviews yet</div>
             ) : [...entries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).map((e, i, arr) => (
-              <button key={e.id} onClick={() => { setShowReviews(false); onPin(e.id); }} style={{
+              <button key={e.id} onClick={() => setViewingReview(e)} style={{
                 width: '100%', display: 'flex', gap: 12, padding: '12px 0', textAlign: 'left', border: 0, background: 'none', cursor: 'pointer',
                 borderBottom: i < arr.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none',
               }}>
@@ -2488,6 +2489,24 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Review detail — floats above the reviews list */}
+      {viewingReview && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 170 }}>
+          <BottomSheet open={true} onClose={() => setViewingReview(null)} dark={dark}>
+            <PlaceDetailSheet
+              entry={viewingReview}
+              dark={dark} accent={accent}
+              user={user}
+              friendMode={false}
+              onClose={() => setViewingReview(null)}
+              onEdit={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
+              onDelete={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
+              onPhotosChanged={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
+            />
+          </BottomSheet>
         </div>
       )}
 

@@ -539,7 +539,7 @@ function CategoryLegend({ dark }) {
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
-function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist, onNotifications }) {
+function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], user, onLogReview, onSaveWishlist, onNotifications, onMapLongPress }) {
   const cat = window.MINKO_CATEGORY_COLORS;
   const pins = entries.filter(e => e.lon && e.lat).map(e => ({
     id: e.id, lon: e.lon, lat: e.lat,
@@ -553,6 +553,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
         activePinId={activePinId}
         onPinClick={onPin}
         fitToPins={pins.length > 0}
+        onMapLongPress={onMapLongPress}
       />
       <SafeTopBar dark={dark}/>
       <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications}/>

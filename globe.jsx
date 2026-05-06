@@ -63,6 +63,7 @@ function MinkoGlobe({
   initialOffset,
   fitToPins = false,
   onMapClick,
+  onMapLongPress,
   centerOn = null,
 }) {
   const containerRef    = React.useRef(null);
@@ -73,17 +74,19 @@ function MinkoGlobe({
   const addedImagesRef  = React.useRef(new Set());
 
   // Mutable refs so callbacks always see fresh values
-  const pinsRef        = React.useRef(pins);
-  const accentRef      = React.useRef(accent);
-  const activePinIdRef = React.useRef(activePinId);
-  const onPinClickRef  = React.useRef(onPinClick);
-  const scrollableRef  = React.useRef(scrollable);
-  const onMapClickRef  = React.useRef(onMapClick);
+  const pinsRef            = React.useRef(pins);
+  const accentRef          = React.useRef(accent);
+  const activePinIdRef     = React.useRef(activePinId);
+  const onPinClickRef      = React.useRef(onPinClick);
+  const scrollableRef      = React.useRef(scrollable);
+  const onMapClickRef      = React.useRef(onMapClick);
+  const onMapLongPressRef  = React.useRef(onMapLongPress);
   React.useEffect(() => { pinsRef.current        = pins;        }, [pins]);
   React.useEffect(() => { accentRef.current       = accent;      }, [accent]);
   React.useEffect(() => { activePinIdRef.current  = activePinId; }, [activePinId]);
   React.useEffect(() => { onPinClickRef.current   = onPinClick;  }, [onPinClick]);
   React.useEffect(() => { onMapClickRef.current   = onMapClick;  }, [onMapClick]);
+  React.useEffect(() => { onMapLongPressRef.current = onMapLongPress; }, [onMapLongPress]);
 
   // ── Ensure a pin image (normal + active) is registered ──────────────────
   const ensurePinImage = React.useCallback((map, color) => {
@@ -240,6 +243,64 @@ function MinkoGlobe({
           const lon = poi ? poi.geometry.coordinates[0] : e.lngLat.lng;
           const lat = poi ? poi.geometry.coordinates[1] : e.lngLat.lat;
           onMapClickRef.current?.({ lon, lat, poiFeature: poi || null });
+        });
+
+        // ── Long-press detection ───────────────────────────────────────────
+        let lpTimer = null;
+        let lpStartX = 0, lpStartY = 0;
+        let lpLngLat = null;
+        const LP_MS = 600;
+        const LP_PX = 10;
+
+        const fireLongPress = (point) => {
+          const features = map.queryRenderedFeatures(point);
+          const poi = features.find(f =>
+            f.geometry?.type === 'Point' &&
+            f.properties?.name &&
+            f.layer?.id !== 'minko-pins-layer'
+          );
+          const lon = poi ? poi.geometry.coordinates[0] : lpLngLat.lng;
+          const lat = poi ? poi.geometry.coordinates[1] : lpLngLat.lat;
+
+          // Visual ripple at press point
+          if (containerRef.current) {
+            const ripple = document.createElement('div');
+            ripple.style.cssText = `position:absolute;left:${point.x - 24}px;top:${point.y - 24}px;width:48px;height:48px;border-radius:50%;border:2.5px solid ${accentRef.current};pointer-events:none;opacity:0;z-index:10;animation:minko-lp-ripple 0.55s ease-out forwards;`;
+            containerRef.current.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+          }
+
+          onMapLongPressRef.current?.({ lon, lat, poiFeature: poi || null });
+        };
+
+        const cancelLP = () => { clearTimeout(lpTimer); lpTimer = null; };
+
+        map.on('touchstart', (e) => {
+          if (e.originalEvent.touches.length !== 1) return;
+          lpStartX = e.point.x; lpStartY = e.point.y; lpLngLat = e.lngLat;
+          cancelLP();
+          lpTimer = setTimeout(() => fireLongPress(e.point), LP_MS);
+        });
+        map.on('touchend', cancelLP);
+        map.on('touchcancel', cancelLP);
+        map.on('touchmove', (e) => {
+          if (!lpTimer) return;
+          const dx = e.point.x - lpStartX, dy = e.point.y - lpStartY;
+          if (Math.hypot(dx, dy) > LP_PX) cancelLP();
+        });
+
+        // Desktop fallback
+        map.on('mousedown', (e) => {
+          if (e.originalEvent.button !== 0) return;
+          lpStartX = e.point.x; lpStartY = e.point.y; lpLngLat = e.lngLat;
+          cancelLP();
+          lpTimer = setTimeout(() => fireLongPress(e.point), LP_MS);
+        });
+        map.on('mouseup', cancelLP);
+        map.on('mousemove', (e) => {
+          if (!lpTimer) return;
+          const dx = e.point.x - lpStartX, dy = e.point.y - lpStartY;
+          if (Math.hypot(dx, dy) > LP_PX) cancelLP();
         });
       }
 

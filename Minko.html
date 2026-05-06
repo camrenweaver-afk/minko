@@ -20,6 +20,7 @@
   #root { width: 100%; height: 100%; }
   @keyframes minko-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+  @keyframes minko-lp-ripple { 0% { opacity: 0.9; transform: scale(0.4); } 100% { opacity: 0; transform: scale(2.2); } }
   ::-webkit-scrollbar { width: 0; height: 0; }
   button { font-family: inherit; }
   input, textarea { font-family: inherit; }
@@ -45,8 +46,8 @@
 <script type="text/babel" src="tweaks-panel.jsx?v=5"></script>
 <script type="text/babel" src="data.jsx?v=5"></script>
 <script type="text/babel" src="icons.jsx?v=7"></script>
-<script type="text/babel" src="globe.jsx?v=15"></script>
-<script type="text/babel" src="screens.jsx?v=26"></script>
+<script type="text/babel" src="globe.jsx?v=16"></script>
+<script type="text/babel" src="screens.jsx?v=27"></script>
 <script type="text/babel" src="flows.jsx?v=56"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=8"></script>
@@ -100,6 +101,7 @@ function App() {
   const [showFriendProfile, setShowFriendProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showLongPressAction, setShowLongPressAction] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -245,6 +247,26 @@ function App() {
               onLogReview={onSearchLogReview}
               onSaveWishlist={onSearchSaveWishlist}
               onNotifications={() => setShowNotifications(true)}
+              onMapLongPress={async ({ lon, lat, poiFeature }) => {
+                if (!user) return;
+                let place;
+                if (poiFeature?.properties?.name) {
+                  place = { name: poiFeature.properties.name, sub: poiFeature.properties.address || '', lon, lat };
+                } else {
+                  try {
+                    const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,address,place&limit=1`);
+                    const json = await res.json();
+                    const feat = json.features?.[0];
+                    place = { name: feat?.text || 'Selected Location', sub: feat?.place_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`, lon, lat };
+                  } catch {
+                    place = { name: 'Selected Location', sub: `${lat.toFixed(4)}, ${lon.toFixed(4)}`, lon, lat };
+                  }
+                }
+                setLogPickerPlace(place);
+                setWishlistInitialPlace(place);
+                setWishlistInitialCategory(null);
+                setShowLongPressAction(true);
+              }}
             />
           )}
 
@@ -323,6 +345,16 @@ function App() {
               onClose={() => setShowLogPicker(false)}
               onLogVisit={() => { setShowLogPicker(false); setLogKey(k => k + 1); setLogPickerPlace(null); setShowLocationPicker(true); }}
               onSaveWishlist={() => { setShowLogPicker(false); setShowWishlistAdd(true); }}
+            />
+          </BottomSheet>
+
+          {/* Long-press action picker — skips location picker, place pre-filled from map */}
+          <BottomSheet open={showLongPressAction} onClose={() => setShowLongPressAction(false)} dark={dark}>
+            <ActionPickerSheet
+              dark={dark} accent={accent}
+              onClose={() => setShowLongPressAction(false)}
+              onLogVisit={() => { setShowLongPressAction(false); setLogKey(k => k + 1); setShowLog(true); }}
+              onSaveWishlist={() => { setShowLongPressAction(false); setShowWishlistAdd(true); }}
             />
           </BottomSheet>
 

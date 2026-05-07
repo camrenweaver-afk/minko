@@ -299,38 +299,47 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
 
   // No programmatic focus needed — input is always mounted; onFocus activates
 
-  // Search debounce — Geocoding v5 for better global/landmark coverage
+  // Search debounce — Search Box v1 for commercial POI coverage (chains, restaurants, etc.)
   useEffect(() => {
     if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,place,address,locality,neighborhood&proximity=ip&limit=8&fuzzyMatch=true&language=en`;
+        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,address,place&limit=8&language=en&proximity=ip`;
         const res = await fetch(url);
         const json = await res.json();
-        setResults((json.features || []).map(f => {
-          const [lon, lat] = f.geometry?.coordinates || [null, null];
-          return {
-            id: f.id, name: f.text,
-            sub: f.place_name || '',
-            lon, lat,
-            poi_categories: f.properties?.category ? [f.properties.category] : [],
-          };
-        }));
+        setResults((json.suggestions || []).map(s => ({
+          id: s.mapbox_id,
+          mapbox_id: s.mapbox_id,
+          name: s.name,
+          sub: s.full_address || s.place_formatted || '',
+          lon: null, lat: null, // coords fetched on select via retrieve
+          poi_categories: s.poi_category || [],
+        })));
       } catch { setResults([]); }
       setLoading(false);
     }, 350);
     return () => clearTimeout(t);
   }, [query]);
 
-  // Geocoding v5 returns coords directly — no separate retrieve needed
-  const selectResult = (r) => {
+  // Retrieve full coords from Search Box v1 on tap
+  const selectResult = async (r) => {
     setResults([]);
     setActive(false);
-    const coords = r.lon != null ? { x: ((r.lon + 180) / 360) * 100, y: ((90 - r.lat) / 180) * 100 } : null;
-    const place = { ...r, coords, isCustom: false };
+    setRetrieving(true);
+    let lon = null, lat = null;
+    try {
+      const res = await fetch(`https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`);
+      const json = await res.json();
+      const feat = json.features?.[0];
+      lon = feat?.properties?.coordinates?.longitude ?? feat?.geometry?.coordinates?.[0] ?? null;
+      lat = feat?.properties?.coordinates?.latitude  ?? feat?.geometry?.coordinates?.[1] ?? null;
+    } catch {}
+    setRetrieving(false);
+    const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
+    const place = { ...r, lon, lat, coords, isCustom: false };
     setCardPlace(place);
-    if (r.lon != null) onPlaceSelected?.({ lon: r.lon, lat: r.lat });
+    if (lon != null) onPlaceSelected?.({ lon, lat });
   };
 
   const dismiss    = () => { setActive(false); setQuery(''); setResults([]); };

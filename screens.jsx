@@ -195,6 +195,22 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
   const scrollRef = React.useRef(null);
   const drag      = React.useRef({ active: false, startY: 0, startTime: 0, dy: 0 });
   const timerRef  = React.useRef(null);
+  const unmountRef = React.useRef(null);
+
+  // mounted tracks whether children should be rendered.
+  // Stays true while open; then stays true for 420ms after close so the
+  // slide-out animation finishes BEFORE children unmount (which triggers
+  // cleanup functions like LogEntryFlow's draft-save).
+  const [mounted, setMounted] = React.useState(open);
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+      if (unmountRef.current) { clearTimeout(unmountRef.current); unmountRef.current = null; }
+    } else {
+      unmountRef.current = setTimeout(() => { setMounted(false); unmountRef.current = null; }, 420);
+    }
+    return () => { if (unmountRef.current) { clearTimeout(unmountRef.current); unmountRef.current = null; } };
+  }, [open]);
 
   // Animate open/close by writing directly to the DOM ref — no React state,
   // so reconciler never fights the gesture handler.
@@ -278,7 +294,7 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
         <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', flexShrink: 0, cursor: 'grab' }}>
           <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
         </div>
-        <div ref={scrollRef} style={{ overflow: 'auto', flex: 1 }}>{children}</div>
+        <div ref={scrollRef} style={{ overflow: 'auto', flex: 1 }}>{mounted && children}</div>
       </div>
     </>
   );

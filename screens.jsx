@@ -310,52 +310,45 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
   const [loading, setLoading]       = useState(false);
   const [cardPlace, setCardPlace]   = useState(null);
   const [retrieving, setRetrieving] = useState(false);
-  const [sessionToken] = useState(() => 'minko-srch-' + Math.random().toString(36).slice(2));
   const inputRef = useRef(null);
 
   // No programmatic focus needed — input is always mounted; onFocus activates
 
-  // Search debounce — Search Box v1 for commercial POI coverage (chains, restaurants, etc.)
+  // Search debounce — Google Places for comprehensive global coverage
   useEffect(() => {
-    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
-    const t = setTimeout(async () => {
+    if (!query.trim() || !window._gAutoSvc) { setResults([]); return; }
+    const t = setTimeout(() => {
       setLoading(true);
-      try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,address,place&limit=8&language=en&proximity=ip`;
-        const res = await fetch(url);
-        const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id,
-          mapbox_id: s.mapbox_id,
-          name: s.name,
-          sub: s.full_address || s.place_formatted || '',
-          lon: null, lat: null, // coords fetched on select via retrieve
-          poi_categories: s.poi_category || [],
-        })));
-      } catch { setResults([]); }
-      setLoading(false);
-    }, 350);
+      window._gAutoSvc.getPlacePredictions({ input: query }, (preds, status) => {
+        setResults(status === 'OK' ? preds.map(p => ({
+          id: p.place_id, place_id: p.place_id,
+          name: p.structured_formatting.main_text,
+          sub: p.structured_formatting.secondary_text || '',
+          lon: null, lat: null,
+          poi_categories: p.types || [],
+        })) : []);
+        setLoading(false);
+      });
+    }, 300);
     return () => clearTimeout(t);
   }, [query]);
 
-  // Retrieve full coords from Search Box v1 on tap
-  const selectResult = async (r) => {
+  // Fetch full coords via Places Details on tap
+  const selectResult = (r) => {
     setResults([]);
     setActive(false);
     setRetrieving(true);
-    let lon = null, lat = null;
-    try {
-      const res = await fetch(`https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      lon = feat?.properties?.coordinates?.longitude ?? feat?.geometry?.coordinates?.[0] ?? null;
-      lat = feat?.properties?.coordinates?.latitude  ?? feat?.geometry?.coordinates?.[1] ?? null;
-    } catch {}
-    setRetrieving(false);
-    const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
-    const place = { ...r, lon, lat, coords, isCustom: false };
-    setCardPlace(place);
-    if (lon != null) onPlaceSelected?.({ lon, lat });
+    window._gPlacesSvc.getDetails(
+      { placeId: r.place_id, fields: ['geometry', 'name', 'formatted_address', 'types'] },
+      (place, status) => {
+        const lon = status === 'OK' ? (place.geometry?.location?.lng() ?? null) : null;
+        const lat = status === 'OK' ? (place.geometry?.location?.lat() ?? null) : null;
+        setRetrieving(false);
+        const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
+        setCardPlace({ ...r, lon, lat, coords, isCustom: false });
+        if (lon != null) onPlaceSelected?.({ lon, lat });
+      }
+    );
   };
 
   const dismiss    = () => { setActive(false); setQuery(''); setResults([]); };

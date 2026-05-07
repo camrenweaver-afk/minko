@@ -23,13 +23,15 @@ const COLLECTION_PALETTE = [
   '#a29bfe','#fd79a8','#00b894','#e17055','#0984e3',
 ];
 
-function mapboxCategoryToMinko(categories) {
-  const cats = (Array.isArray(categories) ? categories.join(' ') : String(categories || '')).toLowerCase();
-  if (/restaurant|food|cafe|bar|bistro|brasserie/.test(cats)) return 'restaurant';
-  if (/hotel|lodging|hostel|motel|resort|inn/.test(cats)) return 'hotel';
-  if (/museum|gallery|landmark|monument|park|attraction|temple|church/.test(cats)) return 'attraction';
+function googleTypesToMinko(types) {
+  const cats = (Array.isArray(types) ? types.join(' ') : String(types || '')).toLowerCase();
+  if (/restaurant|food|cafe|bar|bistro|brasserie|meal/.test(cats)) return 'restaurant';
+  if (/lodging|hotel|hostel|motel|resort|inn/.test(cats)) return 'hotel';
+  if (/museum|gallery|landmark|monument|park|attraction|temple|church|tourist|natural_feature|beach/.test(cats)) return 'attraction';
   return 'experience';
 }
+// Alias kept for any call-sites that still use the old name
+const mapboxCategoryToMinko = googleTypesToMinko;
 
 async function reverseGeocode(lon, lat) {
   try {
@@ -706,42 +708,38 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
   const [results, setResults] = useState2([]);
   const [loading, setLoading] = useState2(false);
   const [saving, setSaving] = useState2(false);
-  const [sessionToken] = useState2(() => 'minko-wish-' + Math.random().toString(36).slice(2));
 
   useEffect2(() => {
-    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
-    const timer = setTimeout(async () => {
+    if (!query.trim() || !window._gAutoSvc) { setResults([]); return; }
+    const timer = setTimeout(() => {
       setLoading(true);
-      try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,address,place&limit=8&language=en&proximity=ip`;
-        const res = await fetch(url);
-        const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id, mapbox_id: s.mapbox_id,
-          name: s.name, sub: s.full_address || s.place_formatted || '',
+      window._gAutoSvc.getPlacePredictions({ input: query }, (preds, status) => {
+        setResults(status === 'OK' ? preds.map(p => ({
+          id: p.place_id, place_id: p.place_id,
+          name: p.structured_formatting.main_text,
+          sub: p.structured_formatting.secondary_text || '',
           lon: null, lat: null,
-          poi_categories: s.poi_category || [],
-        })));
-      } catch(e) { setResults([]); }
-      setLoading(false);
-    }, 350);
+          poi_categories: p.types || [],
+        })) : []);
+        setLoading(false);
+      });
+    }, 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Retrieve full coords from Search Box v1 on tap
-  const selectPlace = async (r) => {
+  // Fetch full coords via Places Details on tap
+  const selectPlace = (r) => {
     setLoading(true);
-    let lon = null, lat = null;
-    try {
-      const res = await fetch(`https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      lon = feat?.properties?.coordinates?.longitude ?? feat?.geometry?.coordinates?.[0] ?? null;
-      lat = feat?.properties?.coordinates?.latitude  ?? feat?.geometry?.coordinates?.[1] ?? null;
-    } catch {}
-    setLoading(false);
-    setPlace({ ...r, lon, lat });
-    setCategory(mapboxCategoryToMinko(r.poi_categories));
+    window._gPlacesSvc.getDetails(
+      { placeId: r.place_id, fields: ['geometry', 'name', 'formatted_address', 'types'] },
+      (place, status) => {
+        const lon = status === 'OK' ? (place.geometry?.location?.lng() ?? null) : null;
+        const lat = status === 'OK' ? (place.geometry?.location?.lat() ?? null) : null;
+        setLoading(false);
+        setPlace({ ...r, lon, lat });
+        setCategory(googleTypesToMinko(r.poi_categories));
+      }
+    );
   };
 
   const handleSave = async () => {
@@ -952,53 +950,45 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
   const [isCustom, setIsCustom]             = useState2(false);
   const [reverseLoading, setReverseLoading] = useState2(false);
   const [awaitingPin, setAwaitingPin]       = useState2(false);  // custom row tapped, waiting for map tap
-  const [sessionToken] = useState2(() => 'minko-pick-' + Math.random().toString(36).slice(2));
   const inputRef = useRef2(null);
 
-  // Search debounce — Search Box v1 for commercial POI coverage (chains, restaurants, etc.)
+  // Search debounce — Google Places for comprehensive global coverage
   useEffect2(() => {
-    if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
-    const timer = setTimeout(async () => {
+    if (!query.trim() || !window._gAutoSvc) { setResults([]); return; }
+    const timer = setTimeout(() => {
       setLoading(true);
-      try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,address,place&limit=8&language=en&proximity=ip`;
-        const res = await fetch(url);
-        const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id, mapbox_id: s.mapbox_id,
-          name: s.name, sub: s.full_address || s.place_formatted || '',
+      window._gAutoSvc.getPlacePredictions({ input: query }, (preds, status) => {
+        setResults(status === 'OK' ? preds.map(p => ({
+          id: p.place_id, place_id: p.place_id,
+          name: p.structured_formatting.main_text,
+          sub: p.structured_formatting.secondary_text || '',
           lon: null, lat: null,
-          poi_categories: s.poi_category || [],
-        })));
-      } catch { setResults([]); }
-      setLoading(false);
-    }, 350);
+          poi_categories: p.types || [],
+        })) : []);
+        setLoading(false);
+      });
+    }, 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Retrieve full coords from Search Box v1 on tap
-  const selectSearchResult = async (r) => {
-    try {
-      setDropdownOpen(false);
-      setQuery(r.name);
-      setLoading(true);
-      let lon = null, lat = null;
-      try {
-        const res = await fetch(`https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`);
-        const json = await res.json();
-        const feat = json.features?.[0];
-        lon = feat?.properties?.coordinates?.longitude ?? feat?.geometry?.coordinates?.[0] ?? null;
-        lat = feat?.properties?.coordinates?.latitude  ?? feat?.geometry?.coordinates?.[1] ?? null;
-      } catch {}
-      setLoading(false);
-      const place = { ...r, lon, lat, coords: lon != null ? lonLatToCoords(lon, lat) : { x: 50, y: 40 }, isCustom: false };
-      setSelectedPlace(place);
-      setPinLoc(lon != null ? { lon, lat } : null);
-      setIsCustom(false);
-      setAwaitingPin(false);
-    } catch {
-      setDropdownOpen(false);
-    }
+  // Fetch full coords via Places Details on tap
+  const selectSearchResult = (r) => {
+    setDropdownOpen(false);
+    setQuery(r.name);
+    setLoading(true);
+    window._gPlacesSvc.getDetails(
+      { placeId: r.place_id, fields: ['geometry', 'name', 'formatted_address', 'types'] },
+      (place, status) => {
+        const lon = status === 'OK' ? (place.geometry?.location?.lng() ?? null) : null;
+        const lat = status === 'OK' ? (place.geometry?.location?.lat() ?? null) : null;
+        setLoading(false);
+        const p = { ...r, lon, lat, coords: lon != null ? lonLatToCoords(lon, lat) : { x: 50, y: 40 }, isCustom: false };
+        setSelectedPlace(p);
+        setPinLoc(lon != null ? { lon, lat } : null);
+        setIsCustom(false);
+        setAwaitingPin(false);
+      }
+    );
   };
 
   const handleMapTap = async ({ lon, lat, poiFeature }) => {

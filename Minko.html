@@ -23,7 +23,8 @@
   @keyframes minko-lp-ripple { 0% { opacity: 0.9; transform: scale(0.4); } 100% { opacity: 0; transform: scale(2.2); } }
   ::-webkit-scrollbar { width: 0; height: 0; }
   button { font-family: inherit; }
-  input, textarea { font-family: inherit; }
+  /* Prevent iOS auto-zoom on input focus (triggered when font-size < 16px) */
+  input, textarea, select { font-family: inherit; font-size: 16px !important; }
 </style>
 <script>
   /* --status-h: height of the "status bar" zone above the floating search pill.

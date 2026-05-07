@@ -51,7 +51,7 @@
 <script type="text/babel" src="screens.jsx?v=33"></script>
 <script type="text/babel" src="flows.jsx?v=65"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
-<script type="text/babel" src="onboarding.jsx?v=8"></script>
+<script type="text/babel" src="onboarding.jsx?v=9"></script>
 
 <script type="text/babel">
 const { useState, useEffect } = React;
@@ -108,6 +108,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [entries, setEntries] = useState([]);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [drafts, setDrafts] = useState(() => {
@@ -132,7 +133,11 @@ function App() {
           avatar_url: u.user_metadata?.avatar_url || null,
           updated_at: new Date().toISOString(),
         }).then(({ error }) => {
-          if (error) {
+          if (!error) {
+            // INSERT succeeded → brand new user → show welcome screen
+            setShowWelcome(true);
+          } else {
+            // Conflict → returning user, just update display name
             window.sb.from('profiles').update({
               display_name: displayName,
               updated_at: new Date().toISOString(),
@@ -477,6 +482,15 @@ function App() {
               dark={dark} accent={accent}
               onComplete={() => { setOnboardingDismissed(true); setShowLog(true); }}
               onSkip={() => setOnboardingDismissed(true)}
+            />
+          )}
+
+          {/* Welcome screen — shown after any new account creation (email or Google) */}
+          {authReady && user && showWelcome && (
+            <WelcomeScreen
+              dark={dark} accent={accent}
+              onComplete={() => { setShowWelcome(false); setShowLog(true); }}
+              onSkip={() => setShowWelcome(false)}
             />
           )}
 

@@ -3,7 +3,6 @@
 function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
   // view: 'landing' | 'emailSignup' | 'emailSignin'
   const [view, setView] = useState2('landing');
-  const [step, setStep] = useState2(1);
   const [email, setEmail] = useState2('');
   const [password, setPassword] = useState2('');
   const [showPass, setShowPass] = useState2(false);
@@ -57,8 +56,10 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
           return;
         }
         if (data?.session) {
-          // Email confirmation disabled — user is immediately signed in
-          setStep(2);
+          // Email confirmation disabled — user is signed in; welcome screen
+          // is shown by the parent once onAuthStateChange detects new user.
+          setLoading(false);
+          return;
         } else {
           // Email confirmation required — show "check your email" screen
           setResetSent(false);
@@ -125,7 +126,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
     <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: bg, overflow: 'hidden' }}>
 
       {/* ── LANDING: Logo + Google + Email Sign Up + Sign in link ── */}
-      {step === 1 && view === 'landing' && (
+      {view === 'landing' && (
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', padding: '0 28px',
@@ -174,7 +175,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
       )}
 
       {/* ── EMAIL FORM (signup or signin) ── */}
-      {step === 1 && (view === 'emailSignup' || view === 'emailSignin') && (
+      {(view === 'emailSignup' || view === 'emailSignin') && (
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', padding: '0 28px',
@@ -269,7 +270,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
       )}
 
       {/* ── FORGOT PASSWORD ── */}
-      {step === 1 && view === 'forgotPassword' && (
+      {view === 'forgotPassword' && (
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', padding: '0 28px',
@@ -331,7 +332,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
       )}
 
       {/* ── CONFIRM EMAIL (after sign-up or password reset request) ── */}
-      {step === 1 && view === 'confirmEmail' && (
+      {view === 'confirmEmail' && (
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', padding: '0 28px',
@@ -385,70 +386,88 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
         </div>
       )}
 
-      {/* ── WELCOME (post-signup) ── */}
-      {step === 2 && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          animation: 'minko-fade-in 0.35s ease', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-            {destinations.map((d, i) => {
-              const positions = [
-                { top: '12%', left: '8%', rotate: '-6deg' },
-                { top: '18%', right: '6%', rotate: '4deg' },
-                { top: '30%', left: '18%', rotate: '-3deg' },
-                { top: '38%', right: '10%', rotate: '7deg' },
-                { top: '22%', left: '52%', rotate: '-5deg' },
-                { top: '46%', left: '6%', rotate: '3deg' },
-                { top: '10%', left: '38%', rotate: '-8deg' },
-                { top: '34%', left: '60%', rotate: '5deg' },
-              ];
-              const pos = positions[i] || {};
-              return (
-                <div key={d} style={{
-                  position: 'absolute', ...pos, transform: `rotate(${pos.rotate})`,
-                  padding: '6px 13px', borderRadius: 999,
-                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
-                  border: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)',
-                  fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
-                  color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(20,20,30,0.28)',
-                  whiteSpace: 'nowrap', opacity: 0.8,
-                }}>{d}</div>
-              );
-            })}
-          </div>
-
-          <div style={{ flex: 1 }}/>
-          <div style={{ padding: '0 28px 56px', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontFamily: SERIF, fontSize: 16, fontStyle: 'italic', color: accent, marginBottom: 24, display: 'block' }}>minko</span>
-            <h1 style={{ fontFamily: SERIF, fontSize: 46, fontWeight: 500, lineHeight: 1.05, color: textPrimary, letterSpacing: -1.2, margin: '0 0 16px' }}>
-              Your travel<br/>journal.
-            </h1>
-            <p style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 1.6, color: textMuted, margin: '0 0 38px' }}>
-              Log the places you go. Rate them honestly. Build a map that's actually yours.
-            </p>
-            <button onClick={onComplete} style={{
-              height: 54, borderRadius: 16, border: 'none', cursor: 'pointer',
-              background: accent, color: 'white',
-              fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
-              boxShadow: `0 4px 18px ${accent}44`, marginBottom: 16,
-            }}>
-              Log your first place →
-            </button>
-            <button onClick={onSkip} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: SANS, fontSize: 14, color: textMuted, padding: '8px 0', textAlign: 'center',
-            }}>
-              Skip for now
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 window.OnboardingFlow = OnboardingFlow;
+
+// ─────────────────────────────────────────────────────────────
+// WELCOME SCREEN — shown after any new account creation
+// (email or Google OAuth). Lives outside OnboardingFlow so it
+// can render even when the user is already authenticated.
+// ─────────────────────────────────────────────────────────────
+function WelcomeScreen({ dark, accent, onComplete, onSkip }) {
+  const bg = dark
+    ? 'linear-gradient(160deg, #0e1018 0%, #161824 100%)'
+    : 'linear-gradient(160deg, #f7f2ea 0%, #ece4d4 100%)';
+  const textPrimary = dark ? '#f5f1e8' : '#1a1a2e';
+  const textMuted = dark ? 'rgba(255,255,255,0.42)' : 'rgba(20,20,30,0.42)';
+
+  const destinations = ['Tokyo', 'Lisbon', 'Kyoto', 'Brooklyn', 'Paris', 'Amsterdam', 'Toronto', 'Barcelona'];
+  const positions = [
+    { top: '12%', left: '8%', rotate: '-6deg' },
+    { top: '18%', right: '6%', rotate: '4deg' },
+    { top: '30%', left: '18%', rotate: '-3deg' },
+    { top: '38%', right: '10%', rotate: '7deg' },
+    { top: '22%', left: '52%', rotate: '-5deg' },
+    { top: '46%', left: '6%', rotate: '3deg' },
+    { top: '10%', left: '38%', rotate: '-8deg' },
+    { top: '34%', left: '60%', rotate: '5deg' },
+  ];
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 500, background: bg,
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      animation: 'minko-fade-in 0.35s ease' }}>
+
+      {/* Floating destination tags */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+        {destinations.map((d, i) => {
+          const pos = positions[i] || {};
+          return (
+            <div key={d} style={{
+              position: 'absolute', ...pos, transform: `rotate(${pos.rotate})`,
+              padding: '6px 13px', borderRadius: 999,
+              background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+              border: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)',
+              fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
+              color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(20,20,30,0.28)',
+              whiteSpace: 'nowrap', opacity: 0.8,
+            }}>{d}</div>
+          );
+        })}
+      </div>
+
+      <div style={{ flex: 1 }}/>
+      <div style={{ padding: '0 28px 56px', display: 'flex', flexDirection: 'column' }}>
+        <span style={{ fontFamily: SERIF, fontSize: 16, fontStyle: 'italic', color: accent, marginBottom: 24, display: 'block' }}>minko</span>
+        <h1 style={{ fontFamily: SERIF, fontSize: 46, fontWeight: 500, lineHeight: 1.05, color: textPrimary, letterSpacing: -1.2, margin: '0 0 16px' }}>
+          Your travel<br/>journal.
+        </h1>
+        <p style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 1.6, color: textMuted, margin: '0 0 38px' }}>
+          Log the places you go. Rate them honestly. Build a map that's actually yours.
+        </p>
+        <button onClick={onComplete} style={{
+          height: 54, borderRadius: 16, border: 'none', cursor: 'pointer',
+          background: accent, color: 'white',
+          fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
+          boxShadow: `0 4px 18px ${accent}44`, marginBottom: 16,
+        }}>
+          Log your first place →
+        </button>
+        <button onClick={onSkip} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: SANS, fontSize: 14, color: textMuted, padding: '8px 0', textAlign: 'center',
+        }}>
+          Skip for now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+window.WelcomeScreen = WelcomeScreen;
 
 // ─────────────────────────────────────────────────────────────
 // PASSWORD RESET SCREEN — shown when user arrives via reset link

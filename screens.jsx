@@ -371,7 +371,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           {!active && (
-            <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
+            <img src="logo2.png?v=2" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
           )}
 
           {!active ? (

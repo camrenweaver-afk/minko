@@ -3266,7 +3266,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
       {/* Search bar */}
       <div style={{ position: 'absolute', top: TOP, left: 12, right: 12, zIndex: 30 }}>
         <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 12px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="logo2.png" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
+          <img src="logo2.png?v=2" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
           <MinkoIcon name="search" size={17} color={dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)'} strokeWidth={1.8}/>
           <input
             value={searchQuery}

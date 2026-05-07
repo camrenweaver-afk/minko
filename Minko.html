@@ -88,6 +88,7 @@ function App() {
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
   const [wishlistInitialPlace, setWishlistInitialPlace] = useState(null);
   const [wishlistInitialCategory, setWishlistInitialCategory] = useState(null);
+  const [wishlistFlowKey, setWishlistFlowKey] = useState(0);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
@@ -197,6 +198,7 @@ function App() {
 
   const onSearchSaveWishlist = (place) => {
     setWishlistInitialPlace(place);
+    setWishlistFlowKey(k => k + 1);
     setShowWishlistAdd(true);
   };
 
@@ -361,6 +363,7 @@ function App() {
                 setShowDetail(false);
                 setWishlistInitialPlace({ name: entry.place, sub: entry.location, lon: entry.lon, lat: entry.lat });
                 setWishlistInitialCategory(entry.category);
+                setWishlistFlowKey(k => k + 1);
                 setShowWishlistAdd(true);
               } : undefined}
             />
@@ -372,7 +375,7 @@ function App() {
               dark={dark} accent={accent}
               onClose={() => setShowLogPicker(false)}
               onLogVisit={() => { setShowLogPicker(false); setLogKey(k => k + 1); setLogPickerPlace(null); setShowLocationPicker(true); }}
-              onSaveWishlist={() => { setShowLogPicker(false); setShowWishlistAdd(true); }}
+              onSaveWishlist={() => { setShowLogPicker(false); setWishlistFlowKey(k => k + 1); setShowWishlistAdd(true); }}
             />
           </BottomSheet>
 
@@ -382,7 +385,7 @@ function App() {
               dark={dark} accent={accent}
               onClose={() => setShowLongPressAction(false)}
               onLogVisit={() => { setShowLongPressAction(false); setLogKey(k => k + 1); setShowLog(true); }}
-              onSaveWishlist={() => { setShowLongPressAction(false); setShowWishlistAdd(true); }}
+              onSaveWishlist={() => { setShowLongPressAction(false); setWishlistFlowKey(k => k + 1); setShowWishlistAdd(true); }}
             />
           </BottomSheet>
 
@@ -413,7 +416,7 @@ function App() {
           {/* Wishlist add flow */}
           <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); }} dark={dark}>
             <SaveToWishlistFlow
-              key={wishlistInitialPlace?.id || 'wish'}
+              key={wishlistFlowKey}
               dark={dark} accent={accent}
               user={user}
               initialPlace={wishlistInitialPlace}

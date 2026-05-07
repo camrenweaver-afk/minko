@@ -48,7 +48,7 @@
 <script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=16"></script>
 <script type="text/babel" src="screens.jsx?v=32"></script>
-<script type="text/babel" src="flows.jsx?v=63"></script>
+<script type="text/babel" src="flows.jsx?v=64"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=8"></script>
 
@@ -88,6 +88,7 @@ function App() {
   const [showWishlistAdd, setShowWishlistAdd] = useState(false);
   const [wishlistInitialPlace, setWishlistInitialPlace] = useState(null);
   const [wishlistInitialCategory, setWishlistInitialCategory] = useState(null);
+  const [wishlistSourceEntry, setWishlistSourceEntry] = useState(null);
   const [wishlistFlowKey, setWishlistFlowKey] = useState(0);
   const [wishlistRefreshKey, setWishlistRefreshKey] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
@@ -363,6 +364,7 @@ function App() {
                 setShowDetail(false);
                 setWishlistInitialPlace({ name: entry.place, sub: entry.location, lon: entry.lon, lat: entry.lat });
                 setWishlistInitialCategory(entry.category);
+                setWishlistSourceEntry(entry);
                 setWishlistFlowKey(k => k + 1);
                 setShowWishlistAdd(true);
               } : undefined}
@@ -414,14 +416,15 @@ function App() {
           </BottomSheet>
 
           {/* Wishlist add flow */}
-          <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); }} dark={dark}>
+          <BottomSheet open={showWishlistAdd} onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); setWishlistSourceEntry(null); }} dark={dark}>
             <SaveToWishlistFlow
               key={wishlistFlowKey}
               dark={dark} accent={accent}
               user={user}
               initialPlace={wishlistInitialPlace}
               initialCategory={wishlistInitialCategory}
-              onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); }}
+              sourceEntry={wishlistSourceEntry}
+              onClose={() => { setShowWishlistAdd(false); setWishlistInitialPlace(null); setWishlistInitialCategory(null); setWishlistSourceEntry(null); }}
               onConfirm={handleWishlistAdded}
             />
           </BottomSheet>

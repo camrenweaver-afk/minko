@@ -505,6 +505,45 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             </p>
           )}
 
+          {/* Friend review context */}
+          {localItem.friend_review_user && (localItem.friend_review_note || localItem.friend_review_rating > 0) && (
+            <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 20,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)',
+              border: dark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(20,30,60,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: localItem.friend_review_note ? 10 : 0 }}>
+                {localItem.friend_review_avatar
+                  ? <img src={localItem.friend_review_avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}/>
+                  : <div style={{ width: 28, height: 28, borderRadius: '50%', background: catColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: 'white' }}>
+                        {localItem.friend_review_user[0].toUpperCase()}
+                      </span>
+                    </div>
+                }
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase',
+                    color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 1 }}>Saved from</div>
+                  <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>
+                    {localItem.friend_review_user}'s review
+                  </div>
+                </div>
+                {localItem.friend_review_rating > 0 && (
+                  <div style={{ display: 'flex', gap: 1 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <MinkoIcon key={i} name={i <= localItem.friend_review_rating ? 'star' : 'star-outline'} size={14} color={catColor} strokeWidth={1.5}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {localItem.friend_review_note && (
+                <p style={{ margin: 0, fontFamily: SERIF, fontSize: 15.5, lineHeight: 1.45,
+                  color: dark ? 'rgba(245,241,232,0.75)' : 'rgba(26,26,46,0.65)',
+                  fontStyle: 'italic', paddingLeft: 36 }}>
+                  "{localItem.friend_review_note}"
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Links */}
           {localItem.links?.length > 0 && (
             <div style={{ marginBottom: 20 }}>
@@ -658,7 +697,7 @@ function ActionPickerSheet({ dark, accent, onClose, onLogVisit, onSaveWishlist }
 // ─────────────────────────────────────────────────────────────
 // SAVE TO WISHLIST FLOW (2 steps)
 // ─────────────────────────────────────────────────────────────
-function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, initialCategory = null }) {
+function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, initialCategory = null, sourceEntry = null }) {
   const [step, setStep] = useState2(initialPlace ? 2 : 1);
   const [place, setPlace] = useState2(initialPlace);
   const [category, setCategory] = useState2(initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : 'experience'));
@@ -713,6 +752,10 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         location: place.sub || null,
         lon: place.lon || null,
         lat: place.lat || null,
+        friend_review_note: sourceEntry?.note || null,
+        friend_review_rating: sourceEntry?.rating || null,
+        friend_review_user: sourceEntry?._ownerProfile?.display_name || null,
+        friend_review_avatar: sourceEntry?._ownerProfile?.avatar_url || null,
       });
     }
     setSaving(false);
@@ -802,6 +845,41 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
               background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)', marginBottom: 18 }}>
               <MinkoIcon name="bookmark" size={16} color={accent} strokeWidth={2}/>
               <div style={{ flex: 1, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{place.name}</div>
+            </div>
+          )}
+          {sourceEntry && (sourceEntry.note || sourceEntry.rating > 0) && (
+            <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 18,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)',
+              border: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                {sourceEntry._ownerProfile?.avatar_url
+                  ? <img src={sourceEntry._ownerProfile.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}/>
+                  : <div style={{ width: 28, height: 28, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: 'white' }}>
+                        {(sourceEntry._ownerProfile?.display_name || '?')[0].toUpperCase()}
+                      </span>
+                    </div>
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>
+                    {sourceEntry._ownerProfile?.display_name || 'Friend'}'s review
+                  </span>
+                </div>
+                {sourceEntry.rating > 0 && (
+                  <div style={{ display: 'flex', gap: 1 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <MinkoIcon key={i} name={i <= sourceEntry.rating ? 'star' : 'star-outline'} size={13} color={accent} strokeWidth={1.5}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {sourceEntry.note && (
+                <p style={{ margin: 0, fontFamily: SERIF, fontSize: 14.5, lineHeight: 1.45,
+                  color: dark ? 'rgba(245,241,232,0.75)' : 'rgba(26,26,46,0.65)',
+                  fontStyle: 'italic' }}>
+                  "{sourceEntry.note}"
+                </p>
+              )}
             </div>
           )}
           <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)', marginBottom: 12, letterSpacing: 0.3 }}>What kind of place?</div>

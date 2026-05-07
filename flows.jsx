@@ -3405,7 +3405,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           user={user}
           onBack={() => setViewingProfile(null)}
           onFriendshipChanged={loadFriendships}
-          zIndex={60}
+          zIndex={170}
         />
       )}
     </div>

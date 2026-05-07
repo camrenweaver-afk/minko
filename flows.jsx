@@ -713,31 +713,23 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,place,address,locality,neighborhood&proximity=ip&limit=8&fuzzyMatch=true&language=en`;
         const res = await fetch(url);
         const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
-          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
-        })));
+        setResults((json.features || []).map(f => {
+          const [lon, lat] = f.geometry?.coordinates || [null, null];
+          return { id: f.id, name: f.text, sub: f.place_name || '', lon, lat, poi_categories: f.properties?.category ? [f.properties.category] : [] };
+        }));
       } catch(e) { setResults([]); }
       setLoading(false);
     }, 350);
     return () => clearTimeout(timer);
   }, [query]);
 
-  const selectPlace = async (r) => {
-    if (!window.MAPBOX_TOKEN) return;
-    try {
-      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      setPlace({ ...r, lon: feat?.geometry.coordinates[0], lat: feat?.geometry.coordinates[1] });
-      setCategory(mapboxCategoryToMinko(r.poi_categories));
-    } catch(e) {
-      setPlace({ ...r, lon: null, lat: null });
-    }
+  // Geocoding v5 returns coords directly — no retrieve step needed
+  const selectPlace = (r) => {
+    setPlace({ ...r });
+    setCategory(mapboxCategoryToMinko(r.poi_categories));
   };
 
   const handleSave = async () => {
@@ -951,34 +943,30 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
   const [sessionToken] = useState2(() => 'minko-pick-' + Math.random().toString(36).slice(2));
   const inputRef = useRef2(null);
 
-  // Search debounce
+  // Search debounce — Geocoding v5 for better global/landmark coverage
   useEffect2(() => {
     if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,place,address,locality,neighborhood&proximity=ip&limit=8&fuzzyMatch=true&language=en`;
         const res = await fetch(url);
         const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
-          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
-        })));
+        setResults((json.features || []).map(f => {
+          const [lon, lat] = f.geometry?.coordinates || [null, null];
+          return { id: f.id, name: f.text, sub: f.place_name || '', lon, lat, poi_categories: f.properties?.category ? [f.properties.category] : [] };
+        }));
       } catch { setResults([]); }
       setLoading(false);
     }, 350);
     return () => clearTimeout(timer);
   }, [query]);
 
-  const selectSearchResult = async (r) => {
-    if (!window.MAPBOX_TOKEN) return;
+  // Geocoding v5 returns coords directly — no retrieve step needed
+  const selectSearchResult = (r) => {
     try {
-      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      const lon = feat?.geometry.coordinates[0] ?? null;
-      const lat = feat?.geometry.coordinates[1] ?? null;
+      const lon = r.lon ?? null;
+      const lat = r.lat ?? null;
       const place = { ...r, lon, lat, coords: lon != null ? lonLatToCoords(lon, lat) : { x: 50, y: 40 }, isCustom: false };
       setSelectedPlace(place);
       setPinLoc(lon != null ? { lon, lat } : null);

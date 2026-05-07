@@ -299,44 +299,38 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
 
   // No programmatic focus needed — input is always mounted; onFocus activates
 
-  // Search debounce
+  // Search debounce — Geocoding v5 for better global/landmark coverage
   useEffect(() => {
     if (!query.trim() || !window.MAPBOX_TOKEN) { setResults([]); return; }
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}&types=poi,place,address&proximity=ip&limit=8`;
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${window.MAPBOX_TOKEN}&types=poi,place,address,locality,neighborhood&proximity=ip&limit=8&fuzzyMatch=true&language=en`;
         const res = await fetch(url);
         const json = await res.json();
-        setResults((json.suggestions || []).map(s => ({
-          id: s.mapbox_id, name: s.name, sub: s.place_formatted || '',
-          mapbox_id: s.mapbox_id, poi_categories: s.poi_category || [],
-        })));
+        setResults((json.features || []).map(f => {
+          const [lon, lat] = f.geometry?.coordinates || [null, null];
+          return {
+            id: f.id, name: f.text,
+            sub: f.place_name || '',
+            lon, lat,
+            poi_categories: f.properties?.category ? [f.properties.category] : [],
+          };
+        }));
       } catch { setResults([]); }
       setLoading(false);
     }, 350);
     return () => clearTimeout(t);
   }, [query]);
 
-  const selectResult = async (r) => {
+  // Geocoding v5 returns coords directly — no separate retrieve needed
+  const selectResult = (r) => {
     setResults([]);
     setActive(false);
-    setRetrieving(true);
-    try {
-      const url = `https://api.mapbox.com/search/searchbox/v1/retrieve/${r.mapbox_id}?access_token=${window.MAPBOX_TOKEN}&session_token=${sessionToken}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      const feat = json.features?.[0];
-      const lon  = feat?.geometry?.coordinates[0] ?? null;
-      const lat  = feat?.geometry?.coordinates[1] ?? null;
-      const coords = lon != null ? { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 } : null;
-      const place = { ...r, lon, lat, coords, isCustom: false };
-      setCardPlace(place);
-      if (lon != null) onPlaceSelected?.({ lon, lat });
-    } catch {
-      setCardPlace({ ...r, lon: null, lat: null, coords: null, isCustom: false });
-    }
-    setRetrieving(false);
+    const coords = r.lon != null ? { x: ((r.lon + 180) / 360) * 100, y: ((90 - r.lat) / 180) * 100 } : null;
+    const place = { ...r, coords, isCustom: false };
+    setCardPlace(place);
+    if (r.lon != null) onPlaceSelected?.({ lon: r.lon, lat: r.lat });
   };
 
   const dismiss    = () => { setActive(false); setQuery(''); setResults([]); };

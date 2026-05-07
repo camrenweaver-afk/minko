@@ -297,9 +297,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
   const [sessionToken] = useState(() => 'minko-srch-' + Math.random().toString(36).slice(2));
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    if (active) setTimeout(() => inputRef.current?.focus(), 50);
-  }, [active]);
+  // No programmatic focus needed — input is always mounted; onFocus activates
 
   // Search debounce
   useEffect(() => {
@@ -370,34 +368,30 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
           height: 52, padding: '0 10px 0 16px',
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
+          {/* Logo shown only when inactive */}
           {!active && (
             <img src="logo2.png?v=2" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
           )}
 
-          {!active ? (
-            <div onClick={() => setActive(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 0' }}>
-              <MinkoIcon name="search" size={18} color={mutedC} strokeWidth={1.8}/>
-              <span style={{ fontFamily: SANS, fontSize: 14.5, color: mutedC }}>Search places…</span>
-            </div>
-          ) : (
-            <>
-              <MinkoIcon name="search" size={18} color={mutedC} strokeWidth={1.8}/>
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Restaurants, hotels, attractions…"
-                style={{
-                  flex: 1, border: 'none', outline: 'none', background: 'transparent',
-                  fontFamily: SANS, fontSize: 15, color: textC,
-                }}
-              />
-              {query.length > 0 && (
-                <button onClick={() => setQuery('')} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedC }}>
-                  <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
-                </button>
-              )}
-            </>
+          <MinkoIcon name="search" size={18} color={mutedC} strokeWidth={1.8}/>
+
+          {/* Input is always mounted so a single tap focuses + activates on iOS */}
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onFocus={() => setActive(true)}
+            placeholder={active ? 'Restaurants, hotels, attractions…' : 'Search places…'}
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontFamily: SANS, fontSize: 15, color: textC, cursor: active ? 'text' : 'pointer',
+            }}
+          />
+
+          {active && query.length > 0 && (
+            <button onClick={() => setQuery('')} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedC }}>
+              <MinkoIcon name="close" size={15} strokeWidth={2.2}/>
+            </button>
           )}
 
           {!active ? (

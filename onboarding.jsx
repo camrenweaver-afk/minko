@@ -123,7 +123,7 @@ function OnboardingFlow({ dark, accent, onComplete, onSkip }) {
   const destinations = ['Tokyo', 'Lisbon', 'Kyoto', 'Brooklyn', 'Paris', 'Amsterdam', 'Toronto', 'Barcelona'];
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 100, background: bg, overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 300, background: bg, overflow: 'hidden' }}>
 
       {/* ── LANDING: Logo + Google + Email Sign Up + Sign in link ── */}
       {view === 'landing' && (

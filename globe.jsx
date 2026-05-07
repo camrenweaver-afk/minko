@@ -81,12 +81,14 @@ function MinkoGlobe({
   const scrollableRef      = React.useRef(scrollable);
   const onMapClickRef      = React.useRef(onMapClick);
   const onMapLongPressRef  = React.useRef(onMapLongPress);
+  const fitToPinsRef       = React.useRef(fitToPins);
   React.useEffect(() => { pinsRef.current        = pins;        }, [pins]);
   React.useEffect(() => { accentRef.current       = accent;      }, [accent]);
   React.useEffect(() => { activePinIdRef.current  = activePinId; }, [activePinId]);
   React.useEffect(() => { onPinClickRef.current   = onPinClick;  }, [onPinClick]);
   React.useEffect(() => { onMapClickRef.current   = onMapClick;  }, [onMapClick]);
   React.useEffect(() => { onMapLongPressRef.current = onMapLongPress; }, [onMapLongPress]);
+  React.useEffect(() => { fitToPinsRef.current    = fitToPins;   }, [fitToPins]);
 
   // ── Ensure a pin image (normal + active) is registered ──────────────────
   const ensurePinImage = React.useCallback((map, color) => {
@@ -306,7 +308,7 @@ function MinkoGlobe({
 
       if (isMini) {
         fitMiniMap(map);
-      } else if (fitToPins) {
+      } else if (fitToPinsRef.current) {
         const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
         if (valid.length) { hasFittedRef.current = true; fitGlobe(map); }
       }
@@ -341,16 +343,24 @@ function MinkoGlobe({
   // ── Refresh pins when data / active pin / accent changes ─────────────────
   React.useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    updatePins();
-    if (!hasFittedRef.current) {
-      const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
-      if (valid.length) {
-        hasFittedRef.current = true;
-        if (!scrollableRef.current) fitMiniMap(map);
-        else if (fitToPins)         fitGlobe(map);
+    if (!map) return;
+    const tryFit = () => {
+      updatePins();
+      if (!hasFittedRef.current) {
+        const valid = pinsRef.current.filter(p => p.lon != null && p.lat != null);
+        if (valid.length) {
+          hasFittedRef.current = true;
+          if (!scrollableRef.current) fitMiniMap(map);
+          else if (fitToPinsRef.current) fitGlobe(map);
+        }
       }
+    };
+    if (!map.isStyleLoaded()) {
+      // Style still loading — wait for it then try
+      map.once('load', tryFit);
+      return () => map.off('load', tryFit);
     }
+    tryFit();
   }, [pins, activePinId, accent]); // eslint-disable-line
 
   // ── Imperatively fly to a location ───────────────────────────────────────

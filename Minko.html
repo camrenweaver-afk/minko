@@ -124,25 +124,21 @@ function App() {
       if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         const u = session.user;
         const displayName = u.user_metadata?.full_name || u.email?.split('@')[0] || 'User';
-        // Try to INSERT for new users (includes OAuth avatar as default).
-        // On conflict the profile already exists — update only display_name,
-        // never touch avatar_url so custom uploads survive sign-out / re-login.
-        window.sb.from('profiles').insert({
+        // Fetch profile to check welcomed flag and update display name.
+        // The handle_new_user DB trigger already creates the profile row,
+        // so we upsert here to keep display_name/avatar fresh.
+        window.sb.from('profiles').upsert({
           id: u.id,
           display_name: displayName,
           avatar_url: u.user_metadata?.avatar_url || null,
           updated_at: new Date().toISOString(),
-        }).then(({ error }) => {
-          if (!error) {
-            // INSERT succeeded → brand new user → show welcome screen
-            setShowWelcome(true);
-          } else {
-            // Conflict → returning user, just update display name
-            window.sb.from('profiles').update({
-              display_name: displayName,
-              updated_at: new Date().toISOString(),
-            }).eq('id', u.id).then(() => {});
-          }
+        }, { onConflict: 'id', ignoreDuplicates: false }).then(() => {
+          // Check welcomed flag — if false this is a new user who hasn't
+          // seen the welcome screen yet (works for email + Google OAuth)
+          window.sb.from('profiles').select('welcomed').eq('id', u.id).single()
+            .then(({ data }) => {
+              if (data && !data.welcomed) setShowWelcome(true);
+            });
         });
       }
     });
@@ -489,8 +485,15 @@ function App() {
           {authReady && user && showWelcome && (
             <WelcomeScreen
               dark={dark} accent={accent}
-              onComplete={() => { setShowWelcome(false); setShowLog(true); }}
-              onSkip={() => setShowWelcome(false)}
+              onComplete={() => {
+                setShowWelcome(false);
+                setShowLog(true);
+                if (user?.id) window.sb.from('profiles').update({ welcomed: true }).eq('id', user.id).then(() => {});
+              }}
+              onSkip={() => {
+                setShowWelcome(false);
+                if (user?.id) window.sb.from('profiles').update({ welcomed: true }).eq('id', user.id).then(() => {});
+              }}
             />
           )}
 

@@ -3233,6 +3233,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [feedDetailOpen, setFeedDetailOpen] = useState2(false);
   const [feedWishlistEntry, setFeedWishlistEntry] = useState2(null);
   const [panelOpen, setPanelOpen] = useState2(true);
+  const [showFilterDropdown, setShowFilterDropdown] = useState2(false);
   const panelRef = useRef2(null);
   const feedDrag = useRef2({ active: false, startY: 0, dy: 0 });
   const searchTimer = useRef2(null);
@@ -3329,6 +3330,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
   const feedEntries = [...filteredFriendEntries].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const hasFilters = !!(filterCategory || filterRating);
   const catLabel = { restaurant: 'Eat', hotel: 'Stay', attraction: 'See', experience: 'Do' };
   const relTime = (ts) => {
     if (!ts) return '';
@@ -3394,12 +3396,19 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
-      <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0}/>
+      {/* Globe — shrinks to top portion when feed is open so all pins are visible */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        bottom: (panelOpen && !showPanel) ? '52%' : '0',
+        transition: 'bottom 0.38s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+        <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0}/>
+      </div>
       <SafeTopBar dark={dark}/>
 
-      {/* Search bar */}
+      {/* Search bar + filter button */}
       <div style={{ position: 'absolute', top: TOP, left: 12, right: 12, zIndex: 30 }}>
-        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 12px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <GlassSurface dark={dark} radius={26} style={{ height: 52, padding: '0 10px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src="logo2.png?v=2" style={{ height: 39, width: 'auto', display: 'block', flexShrink: 0 }} alt="minko"/>
           <MinkoIcon name="search" size={17} color={dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)'} strokeWidth={1.8}/>
           <input
@@ -3408,21 +3417,73 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
             placeholder="Search people by name…"
             style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontFamily: SANS, fontSize: 14.5, color: labelText }}
           />
-          {searchQuery && (
+          {searchQuery ? (
             <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ border: 0, background: 'none', cursor: 'pointer', padding: 4, color: mutedText, display: 'flex', alignItems: 'center' }}>
               <MinkoIcon name="close" size={16} strokeWidth={2.2}/>
+            </button>
+          ) : (
+            <button onClick={() => setShowFilterDropdown(v => !v)} style={{
+              width: 36, height: 36, borderRadius: 11, border: 0, cursor: 'pointer', flexShrink: 0,
+              background: hasFilters ? `${accent}20` : (dark ? 'rgba(255,255,255,0.09)' : 'rgba(20,30,60,0.07)'),
+              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+            }}>
+              <MinkoIcon name="sliders" size={16} color={hasFilters ? accent : (dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)')} strokeWidth={2}/>
+              {hasFilters && <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: '50%', background: accent }}/>}
             </button>
           )}
         </GlassSurface>
       </div>
 
-      {/* Filter bar — hidden while search panel is open */}
-      {!showPanel && (
-        <MapFilterBar dark={dark} accent={accent}
-          filterCategory={filterCategory} setFilterCategory={setFilterCategory}
-          filterRating={filterRating} setFilterRating={setFilterRating}
-          topOffset={64}
-        />
+      {/* Filter dropdown */}
+      {showFilterDropdown && !showPanel && (
+        <>
+          <div onClick={() => setShowFilterDropdown(false)} style={{ position: 'absolute', inset: 0, zIndex: 28 }}/>
+          <div style={{
+            position: 'absolute',
+            top: `calc(${TOP} + 62px)`,
+            left: 12, right: 12,
+            zIndex: 29,
+            borderRadius: 18,
+            background: dark ? 'rgba(20,22,36,0.97)' : 'rgba(252,250,246,0.97)',
+            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.16)',
+            padding: '14px 16px 16px',
+          }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Category</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{id:null,label:'All'},{id:'restaurant',label:'Eat'},{id:'hotel',label:'Stay'},{id:'attraction',label:'See'},{id:'experience',label:'Do'}].map(c => {
+                  const sel = filterCategory === c.id;
+                  const cc = c.id ? (catColors[c.id] || accent) : accent;
+                  return (
+                    <button key={String(c.id)} onClick={() => setFilterCategory(c.id)} style={{
+                      border: 0, cursor: 'pointer', borderRadius: 20, padding: '7px 15px',
+                      fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                      background: sel ? cc : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                      color: sel ? 'white' : labelText,
+                    }}>{c.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Min. rating</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{val:null,label:'Any'},{val:1,label:'1★+'},{val:2,label:'2★+'},{val:3,label:'3★+'},{val:4,label:'4★+'},{val:5,label:'5★'}].map(r => {
+                  const sel = filterRating === r.val;
+                  return (
+                    <button key={String(r.val)} onClick={() => setFilterRating(r.val)} style={{
+                      border: 0, cursor: 'pointer', borderRadius: 20, padding: '7px 15px',
+                      fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                      background: sel ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                      color: sel ? 'white' : labelText,
+                    }}>{r.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Search results panel — only shown while actively searching */}

@@ -3230,6 +3230,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [filterCategory, setFilterCategory] = useState2(null);
   const [filterRating, setFilterRating] = useState2(null);
   const [viewingFeedEntry, setViewingFeedEntry] = useState2(null);
+  const [feedDetailOpen, setFeedDetailOpen] = useState2(false);
   const [feedWishlistEntry, setFeedWishlistEntry] = useState2(null);
   const [panelOpen, setPanelOpen] = useState2(true);
   const panelRef = useRef2(null);
@@ -3494,7 +3495,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                 const cc = catColors[e.category] || accent;
                 const hasPics = e.photos?.length > 0;
                 return (
-                  <div key={e.id} onClick={() => setViewingFeedEntry(e)} style={{
+                  <div key={e.id} onClick={() => { setViewingFeedEntry(e); setFeedDetailOpen(true); }} style={{
                     padding: '14px 16px', cursor: 'pointer',
                     borderBottom: i < feedEntries.length - 1
                       ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none',
@@ -3513,7 +3514,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 700, color: labelText }}>{e.name}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 700, color: labelText }}>{e.place || e.name}</span>
                           {e.category && (
                             <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 600, color: cc, background: `${cc}1a`, borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>
                               {catLabel[e.category] || e.category}
@@ -3569,24 +3570,16 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
         </>
       )}
 
-      {/* Feed entry detail view */}
-      {viewingFeedEntry && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 155, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
-          <div onClick={() => setViewingFeedEntry(null)} style={{ flex: 1, background: 'rgba(15,20,40,0.25)', backdropFilter: 'blur(2px)' }}/>
-          <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '85%', overflow: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
-              <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
-            </div>
-            <PlaceDetailSheet
-              entry={viewingFeedEntry} dark={dark} accent={accent}
-              friendMode={true} friend={viewingFeedEntry._ownerProfile}
-              friendsAtPlace={[]} user={user}
-              onClose={() => setViewingFeedEntry(null)}
-              onSaveWishlist={(entry) => { setViewingFeedEntry(null); setFeedWishlistEntry(entry); }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Feed entry detail — uses BottomSheet so swipe-down anywhere dismisses */}
+      <BottomSheet open={feedDetailOpen} onClose={() => setFeedDetailOpen(false)} dark={dark}>
+        <PlaceDetailSheet
+          entry={viewingFeedEntry} dark={dark} accent={accent}
+          friendMode={true} friend={viewingFeedEntry?._ownerProfile}
+          friendsAtPlace={[]} user={user}
+          onClose={() => setFeedDetailOpen(false)}
+          onSaveWishlist={(entry) => { setFeedDetailOpen(false); setFeedWishlistEntry(entry); }}
+        />
+      </BottomSheet>
 
       {/* Wishlist save from feed */}
       {feedWishlistEntry && (
@@ -3594,7 +3587,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           <SaveToWishlistFlow
             key={feedWishlistEntry.id}
             dark={dark} accent={accent} user={user}
-            initialPlace={{ name: feedWishlistEntry.name, sub: feedWishlistEntry.location || '', lon: feedWishlistEntry.lon, lat: feedWishlistEntry.lat, poi_categories: [feedWishlistEntry.category] }}
+            initialPlace={{ name: feedWishlistEntry.place || feedWishlistEntry.name, sub: feedWishlistEntry.location || '', lon: feedWishlistEntry.lon, lat: feedWishlistEntry.lat, poi_categories: [feedWishlistEntry.category] }}
             initialCategory={feedWishlistEntry.category}
             sourceEntry={feedWishlistEntry}
             onClose={() => setFeedWishlistEntry(null)}

@@ -3229,6 +3229,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [viewingProfile, setViewingProfile] = useState2(null); // just the profile object now
   const [filterCategory, setFilterCategory] = useState2(null);
   const [filterRating, setFilterRating] = useState2(null);
+  const [viewingFeedEntry, setViewingFeedEntry] = useState2(null);
+  const [feedWishlistEntry, setFeedWishlistEntry] = useState2(null);
   const searchTimer = useRef2(null);
 
   const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
@@ -3322,6 +3324,19 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
+  const feedEntries = [...filteredFriendEntries].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const catLabel = { restaurant: 'Eat', hotel: 'Stay', attraction: 'See', experience: 'Do' };
+  const relTime = (ts) => {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const d = Math.floor(h / 24);
+    return d < 30 ? `${d}d` : new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
 
   const FriendRow = ({ profile, right, sub }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -3391,6 +3406,117 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
             })}
           </GlassSurface>
         </div>
+      )}
+
+      {/* ── Friends Feed Panel ── */}
+      {!showPanel && (
+        <div style={{
+          position: 'absolute', bottom: PANEL_BOT, left: 0, right: 0, height: '46%',
+          zIndex: 20, display: 'flex', flexDirection: 'column',
+          borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          background: dark ? 'rgba(16,17,26,0.93)' : 'rgba(250,248,243,0.93)',
+          backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0 -4px 28px rgba(0,0,0,0.13)',
+          overflow: 'hidden',
+        }}>
+          {/* Handle + header */}
+          <div style={{ flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '9px 0 4px' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }}/>
+            </div>
+            <div style={{ padding: '0 16px 8px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, fontStyle: 'italic', color: labelText }}>Friends' Reviews</span>
+              {feedEntries.length > 0 && (
+                <span style={{ fontFamily: SANS, fontSize: 11, color: mutedText }}>{feedEntries.length} review{feedEntries.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+          </div>
+          {/* Scrollable list */}
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            {loading ? (
+              <div style={{ padding: '28px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13, color: mutedText }}>Loading…</div>
+            ) : feedEntries.length === 0 ? (
+              <div style={{ padding: '24px 20px', textAlign: 'center' }}>
+                <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, marginBottom: 6 }}>
+                  {friendships.length === 0 ? 'Add friends to see their reviews' : 'No reviews yet'}
+                </div>
+                <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedText, lineHeight: 1.5 }}>
+                  {friendships.length === 0
+                    ? 'Search for people above to connect with friends.'
+                    : 'When your friends log reviews, they\'ll show up here.'}
+                </div>
+              </div>
+            ) : feedEntries.map((e, i) => {
+              const cc = catColors[e.category] || accent;
+              return (
+                <div key={e.id} onClick={() => setViewingFeedEntry(e)} style={{
+                  display: 'flex', gap: 11, padding: '11px 16px', cursor: 'pointer',
+                  borderBottom: i < feedEntries.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none',
+                }}>
+                  <div style={{ flexShrink: 0, paddingTop: 1 }}>
+                    <Avatar src={e._ownerProfile?.avatar_url} name={e._ownerProfile?.display_name} color={cc} size={36}/>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: labelText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                        {e._ownerProfile?.display_name || 'Friend'}
+                      </span>
+                      <span style={{ fontFamily: SANS, fontSize: 11, color: mutedText, flexShrink: 0 }}>{relTime(e.created_at)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText }}>{e.name}</span>
+                      {e.category && (
+                        <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.3, color: cc, background: `${cc}1a`, borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>
+                          {catLabel[e.category] || e.category}
+                        </span>
+                      )}
+                    </div>
+                    {e.rating > 0 && <div style={{ marginTop: 3 }}><Stars n={e.rating} size={11} color={cc}/></div>}
+                    {e.note ? (
+                      <div style={{ marginTop: 4, fontFamily: SANS, fontSize: 12.5, color: mutedText, fontStyle: 'italic', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        "{e.note}"
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Feed entry detail view */}
+      {viewingFeedEntry && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 155, display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+          <div onClick={() => setViewingFeedEntry(null)} style={{ flex: 1, background: 'rgba(15,20,40,0.25)', backdropFilter: 'blur(2px)' }}/>
+          <div style={{ background: dark ? '#1c1d28' : '#faf8f3', borderTopLeftRadius: 24, borderTopRightRadius: 24, boxShadow: '0 -10px 40px rgba(0,0,0,0.18)', maxHeight: '85%', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+              <div style={{ width: 38, height: 4.5, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)' }}/>
+            </div>
+            <PlaceDetailSheet
+              entry={viewingFeedEntry} dark={dark} accent={accent}
+              friendMode={true} friend={viewingFeedEntry._ownerProfile}
+              friendsAtPlace={[]} user={user}
+              onClose={() => setViewingFeedEntry(null)}
+              onSaveWishlist={(entry) => { setViewingFeedEntry(null); setFeedWishlistEntry(entry); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Wishlist save from feed */}
+      {feedWishlistEntry && (
+        <BottomSheet open={true} onClose={() => setFeedWishlistEntry(null)} dark={dark}>
+          <SaveToWishlistFlow
+            key={feedWishlistEntry.id}
+            dark={dark} accent={accent} user={user}
+            initialPlace={{ name: feedWishlistEntry.name, sub: feedWishlistEntry.location || '', lon: feedWishlistEntry.lon, lat: feedWishlistEntry.lat, poi_categories: [feedWishlistEntry.category] }}
+            initialCategory={feedWishlistEntry.category}
+            sourceEntry={feedWishlistEntry}
+            onClose={() => setFeedWishlistEntry(null)}
+            onConfirm={() => setFeedWishlistEntry(null)}
+          />
+        </BottomSheet>
       )}
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>

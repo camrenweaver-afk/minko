@@ -3402,7 +3402,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
         bottom: (panelOpen && !showPanel) ? '52%' : '0',
         transition: 'bottom 0.38s cubic-bezier(0.32,0.72,0,1)',
       }}>
-        <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0}/>
+        <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0} resizeKey={panelOpen ? 'open' : 'closed'}/>
       </div>
       <SafeTopBar dark={dark}/>
 

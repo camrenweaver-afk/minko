@@ -65,6 +65,7 @@ function MinkoGlobe({
   onMapClick,
   onMapLongPress,
   centerOn = null,
+  resizeKey,
 }) {
   const containerRef    = React.useRef(null);
   const mapRef          = React.useRef(null);
@@ -89,6 +90,11 @@ function MinkoGlobe({
   React.useEffect(() => { onMapClickRef.current   = onMapClick;  }, [onMapClick]);
   React.useEffect(() => { onMapLongPressRef.current = onMapLongPress; }, [onMapLongPress]);
   React.useEffect(() => { fitToPinsRef.current    = fitToPins;   }, [fitToPins]);
+
+  // Resize the Mapbox canvas when the container dimensions change (e.g. feed panel open/close)
+  React.useEffect(() => {
+    if (mapRef.current) mapRef.current.resize();
+  }, [resizeKey]);
 
   // ── Ensure a pin image (normal + active) is registered ──────────────────
   const ensurePinImage = React.useCallback((map, color) => {

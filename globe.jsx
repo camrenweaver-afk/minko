@@ -91,9 +91,13 @@ function MinkoGlobe({
   React.useEffect(() => { onMapLongPressRef.current = onMapLongPress; }, [onMapLongPress]);
   React.useEffect(() => { fitToPinsRef.current    = fitToPins;   }, [fitToPins]);
 
-  // Resize the Mapbox canvas when the container dimensions change (e.g. feed panel open/close)
+  // Resize the Mapbox canvas after the container CSS transition completes (~380ms).
+  // Calling resize() immediately would read the container at its *starting* size;
+  // waiting until after the transition ensures the canvas matches the final container.
   React.useEffect(() => {
-    if (mapRef.current) mapRef.current.resize();
+    if (!mapRef.current) return;
+    const t = setTimeout(() => { if (mapRef.current) mapRef.current.resize(); }, 420);
+    return () => clearTimeout(t);
   }, [resizeKey]);
 
   // ── Ensure a pin image (normal + active) is registered ──────────────────

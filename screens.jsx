@@ -408,11 +408,11 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
 
           {!active ? (
             <>
+              {extraRightEl && <div style={{ width: 1, height: 22, background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.1)', flexShrink: 0 }}/>}
               <button onClick={onNotifications} style={{
-                width: 36, height: 36, borderRadius: 12, border: 0, cursor: 'pointer', flexShrink: 0,
-                background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: dark ? 'rgba(255,255,255,0.75)' : 'rgba(20,20,30,0.65)',
+                width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
+                background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)',
               }}>
                 <MinkoIcon name="bell" size={18} strokeWidth={1.8}/>
               </button>
@@ -602,12 +602,12 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
       <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications} onPlaceSelected={setSearchPin}
         extraRightEl={
           <button onClick={() => setShowFilterDropdown(v => !v)} style={{
-            width: 36, height: 36, borderRadius: 11, border: 0, cursor: 'pointer', flexShrink: 0,
-            background: hasFilters ? `${accent}22` : (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)'),
+            width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
+            background: hasFilters ? `${accent}22` : 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
           }}>
-            <MinkoIcon name="sliders" size={16} color={hasFilters ? accent : (dark ? 'rgba(255,255,255,0.75)' : 'rgba(20,20,30,0.65)')} strokeWidth={2}/>
-            {hasFilters && <div style={{ position: 'absolute', top: 7, right: 7, width: 6, height: 6, borderRadius: '50%', background: accent }}/>}
+            <MinkoIcon name="sliders" size={16} color={hasFilters ? accent : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)')} strokeWidth={2}/>
+            {hasFilters && <div style={{ position: 'absolute', top: 6, right: 6, width: 5, height: 5, borderRadius: '50%', background: accent }}/>}
           </button>
         }
       />

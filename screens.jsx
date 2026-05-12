@@ -276,14 +276,14 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
     <>
       {open && (
         <div onClick={onClose} style={{
-          position: 'absolute', inset: 0, zIndex: 40,
+          position: 'absolute', inset: 0, zIndex: 155,
           background: 'rgba(15,20,40,0.18)', backdropFilter: 'blur(2px)',
           animation: 'minko-fade-in 0.2s ease',
         }}/>
       )}
       {/* transform NOT in React style — managed entirely via sheetRef to avoid reconciler interference */}
       <div ref={sheetRef} style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 41,
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 156,
         background: dark ? '#1c1d28' : '#faf8f3',
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
         boxShadow: '0 -10px 40px rgba(0,0,0,0.18)',

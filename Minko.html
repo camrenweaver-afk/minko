@@ -56,7 +56,7 @@ window.initGooglePlaces = function() {
 <script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=19"></script>
 <script type="text/babel" src="screens.jsx?v=39"></script>
-<script type="text/babel" src="flows.jsx?v=75"></script>
+<script type="text/babel" src="flows.jsx?v=76"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=10"></script>
 
@@ -159,6 +159,28 @@ function App() {
     window.sb.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       .then(({ count }) => setWishlistCount(count || 0));
   }, [user?.id]);
+
+  // Load friend entries at the top level so the home globe shows them immediately on login
+  useEffect(() => {
+    if (!user) { setFriendEntries([]); return; }
+    (async () => {
+      const { data: fs } = await window.sb.from('friendships')
+        .select('id, status, requester_id, addressee_id, requester:profiles!requester_id(id, display_name, avatar_url), addressee:profiles!addressee_id(id, display_name, avatar_url)')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+      const friendIds = (fs || []).map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id);
+      if (!friendIds.length) { setFriendEntries([]); return; }
+      const profileMap = {};
+      (fs || []).forEach(f => {
+        if (f.requester) profileMap[f.requester_id] = f.requester;
+        if (f.addressee) profileMap[f.addressee_id] = f.addressee;
+      });
+      const { data: entries } = await window.sb.from('entries').select('*')
+        .in('user_id', friendIds).neq('is_private', true);
+      const norm = window.normalizeFriendEntry || ((e, p) => ({ ...e, _ownerProfile: p || null, photos: Array.isArray(e.photos) ? e.photos : [] }));
+      setFriendEntries((entries || []).map(e => norm(e, profileMap[e.user_id])));
+    })();
+  }, [user?.id, friendsRefreshKey]);
 
   const refreshEntries = () => {
     if (!user) return;

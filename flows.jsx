@@ -3209,6 +3209,7 @@ function normalizeFriendEntry(e, profile) {
     comments: [],
   };
 }
+window.normalizeFriendEntry = normalizeFriendEntry;
 
 // ─── small reusable buttons (defined outside component to avoid remount) ────
 function _FriendPillBtn({ onClick, label, bg, color }) {

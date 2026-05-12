@@ -303,7 +303,7 @@ function BottomSheet({ open, onClose, dark, height = 'auto', children, fullDrag 
 // ─────────────────────────────────────────────────────────────
 // Top search bar (floats over map) — full Mapbox search + place card
 // ─────────────────────────────────────────────────────────────
-function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist, onNotifications, onPlaceSelected, rightOffset = 12, extraRightEl }) {
+function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist, onNotifications, onPlaceSelected, rightOffset = 12, extraRightEl, hideBell = false }) {
   const [active, setActive]         = useState(false);
   const [query, setQuery]           = useState('');
   const [results, setResults]       = useState([]);
@@ -408,15 +408,15 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
 
           {!active ? (
             <>
-              {extraRightEl && <div style={{ width: 1, height: 22, background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,20,30,0.1)', flexShrink: 0 }}/>}
-              <button onClick={onNotifications} style={{
-                width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
-                background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)',
-              }}>
-                <MinkoIcon name="bell" size={18} strokeWidth={1.8}/>
-              </button>
-              {extraRightEl}
+              {!hideBell && (
+                <button onClick={onNotifications} style={{
+                  width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
+                  background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)',
+                }}>
+                  <MinkoIcon name="bell" size={18} strokeWidth={1.8}/>
+                </button>
+              )}
             </>
           ) : (
             <button onClick={dismiss} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '4px 6px', fontFamily: SANS, fontSize: 14, fontWeight: 600, color: accent, flexShrink: 0 }}>Cancel</button>
@@ -600,17 +600,38 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
       />
       <SafeTopBar dark={dark}/>
       <TopSearch dark={dark} accent={accent} user={user} onLogReview={onLogReview} onSaveWishlist={onSaveWishlist} onNotifications={onNotifications} onPlaceSelected={setSearchPin}
-        extraRightEl={
-          <button onClick={() => setShowFilterDropdown(v => !v)} style={{
-            width: 32, height: 32, borderRadius: 8, border: 0, cursor: 'pointer', flexShrink: 0,
-            background: hasFilters ? `${accent}22` : 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-          }}>
-            <MinkoIcon name="sliders" size={16} color={hasFilters ? accent : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)')} strokeWidth={2}/>
-            {hasFilters && <div style={{ position: 'absolute', top: 6, right: 6, width: 5, height: 5, borderRadius: '50%', background: accent }}/>}
-          </button>
-        }
+        hideBell={true} rightOffset={106}
       />
+
+      {/* Separate icon pill — bell + filter */}
+      <GlassSurface dark={dark} radius={26} style={{
+        position: 'absolute',
+        top: TOP,
+        right: 12,
+        width: 86,
+        height: 52,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-evenly',
+        zIndex: 162,
+        flexShrink: 0,
+      }}>
+        <button onClick={onNotifications} style={{
+          width: 36, height: 36, border: 0, cursor: 'pointer', background: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)',
+        }}>
+          <MinkoIcon name="bell" size={18} strokeWidth={1.8}/>
+        </button>
+        <button onClick={() => setShowFilterDropdown(v => !v)} style={{
+          width: 36, height: 36, border: 0, cursor: 'pointer', background: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+          color: hasFilters ? accent : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)'),
+        }}>
+          <MinkoIcon name="sliders" size={16} strokeWidth={2} color={hasFilters ? accent : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.5)')}/>
+          {hasFilters && <div style={{ position: 'absolute', top: 7, right: 7, width: 5, height: 5, borderRadius: '50%', background: accent }}/>}
+        </button>
+      </GlassSurface>
 
       {/* Filter dropdown */}
       {showFilterDropdown && (

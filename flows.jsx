@@ -3358,7 +3358,6 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: dark ? '#0e1018' : '#f5f3ef' }}>
-      <SafeTopBar dark={dark}/>
 
       {/* Search bar + filter button */}
       <div style={{ position: 'absolute', top: TOP, left: 12, right: 12, zIndex: 30 }}>
@@ -3503,14 +3502,6 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           overflowY: 'auto', overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
         }}>
-          {/* Feed header */}
-          <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: labelText }}>Friends' Reviews</span>
-            {feedEntries.length > 0 && (
-              <span style={{ fontFamily: SANS, fontSize: 12, color: mutedText }}>{feedEntries.length} review{feedEntries.length !== 1 ? 's' : ''}</span>
-            )}
-          </div>
-
           {loading ? (
             <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13, color: mutedText }}>Loading…</div>
           ) : feedEntries.length === 0 ? (

@@ -55,8 +55,8 @@ window.initGooglePlaces = function() {
 <script type="text/babel" src="data.jsx?v=6"></script>
 <script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=19"></script>
-<script type="text/babel" src="screens.jsx?v=37"></script>
-<script type="text/babel" src="flows.jsx?v=73"></script>
+<script type="text/babel" src="screens.jsx?v=38"></script>
+<script type="text/babel" src="flows.jsx?v=74"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=10"></script>
 
@@ -228,7 +228,14 @@ function App() {
     setActiveFriendPin(null);
   };
 
-  const onPinTap = (id) => { setActivePin(id); setShowDetail(true); };
+  const onPinTap = (id) => {
+    if (entries.some(e => e.id === id)) {
+      setActivePin(id); setActiveFriendPin(null);
+    } else if (friendEntries.some(e => e.id === id)) {
+      setActiveFriendPin(id); setActivePin(null);
+    }
+    setShowDetail(true);
+  };
   const onFriendPinTap = (id) => { setActiveFriendPin(id); setShowDetail(true); };
 
   const navProps = {
@@ -280,6 +287,7 @@ function App() {
               navProps={navProps}
               onLog={() => setShowLogPicker(true)}
               entries={entries}
+              friendEntries={friendEntries}
               user={user}
               onLogReview={onSearchLogReview}
               onSaveWishlist={onSearchSaveWishlist}

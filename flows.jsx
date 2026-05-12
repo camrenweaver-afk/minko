@@ -3232,10 +3232,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const [viewingFeedEntry, setViewingFeedEntry] = useState2(null);
   const [feedDetailOpen, setFeedDetailOpen] = useState2(false);
   const [feedWishlistEntry, setFeedWishlistEntry] = useState2(null);
-  const [panelOpen, setPanelOpen] = useState2(true);
+  const [filterFriend, setFilterFriend] = useState2(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState2(false);
-  const panelRef = useRef2(null);
-  const feedDrag = useRef2({ active: false, startY: 0, dy: 0 });
   const searchTimer = useRef2(null);
 
   const TOP = 'calc(var(--status-h, 58px) + env(safe-area-inset-top, 0px) + 6px)';
@@ -3319,18 +3317,10 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   const getFriendProfile = (f) => f.requester_id === user?.id ? f.addressee : f.requester;
 
   const showSearch = searchQuery.trim().length >= 2;
-  const showPanel = showSearch;
-  const filteredFriendEntries = friendEntries.filter(e =>
-    (!filterCategory || e.category === filterCategory) &&
-    (!filterRating || e.rating >= filterRating)
-  );
   const catColors = window.MINKO_CATEGORY_COLORS || {};
-  const pins = filteredFriendEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: catColors[e.category] || accent }));
   const sep = (i, len) => i < len - 1 ? { borderBottom: `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` } : {};
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
-  const feedEntries = [...filteredFriendEntries].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  const hasFilters = !!(filterCategory || filterRating);
   const catLabel = { restaurant: 'Eat', hotel: 'Stay', attraction: 'See', experience: 'Do' };
   const relTime = (ts) => {
     if (!ts) return '';
@@ -3343,43 +3333,15 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
     const d = Math.floor(h / 24);
     return d < 30 ? `${d}d` : new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
-
-  // Animate panel open/close
-  useEffect2(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    el.style.transition = 'transform 0.38s cubic-bezier(0.32,0.72,0,1)';
-    el.style.transform = panelOpen ? 'translateY(0)' : 'translateY(100%)';
-  }, [panelOpen]);
-
-  // Drag-to-dismiss handlers for the feed handle bar
-  const onFeedTouchStart = (e) => {
-    feedDrag.current = { active: true, startY: e.touches[0].clientY, dy: 0 };
-  };
-  const onFeedTouchMove = (e) => {
-    if (!feedDrag.current.active) return;
-    const dy = e.touches[0].clientY - feedDrag.current.startY;
-    feedDrag.current.dy = dy;
-    if (panelRef.current && dy > 0) {
-      panelRef.current.style.transition = 'none';
-      panelRef.current.style.transform = `translateY(${dy}px)`;
-    }
-  };
-  const onFeedTouchEnd = () => {
-    if (!feedDrag.current.active) return;
-    feedDrag.current.active = false;
-    const { dy } = feedDrag.current;
-    if (dy > 60) {
-      setPanelOpen(false);
-      if (panelRef.current) {
-        panelRef.current.style.transition = 'transform 0.38s cubic-bezier(0.32,0.72,0,1)';
-        panelRef.current.style.transform = 'translateY(100%)';
-      }
-    } else if (panelRef.current) {
-      panelRef.current.style.transition = 'transform 0.38s cubic-bezier(0.32,0.72,0,1)';
-      panelRef.current.style.transform = 'translateY(0)';
-    }
-  };
+  const friendProfiles = friendships.map(f => getFriendProfile(f)).filter(Boolean);
+  const feedEntries = [...friendEntries]
+    .filter(e =>
+      (!filterFriend   || e.user_id === filterFriend) &&
+      (!filterCategory || e.category === filterCategory) &&
+      (!filterRating   || e.rating >= filterRating)
+    )
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const hasFilters = !!(filterFriend || filterCategory || filterRating);
 
   const FriendRow = ({ profile, right, sub }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -3395,15 +3357,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
   );
 
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      {/* Globe — shrinks to top portion when feed is open so all pins are visible */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        bottom: (panelOpen && !showPanel) ? '52%' : '0',
-        transition: 'bottom 0.38s cubic-bezier(0.32,0.72,0,1)',
-      }}>
-        <MinkoGlobe dark={dark} accent={accent} pins={pins} activePinId={activePinId} onPinClick={onPin} fitToPins={pins.length > 0} resizeKey={panelOpen ? 'open' : 'closed'}/>
-      </div>
+    <div style={{ position: 'absolute', inset: 0, background: dark ? '#0e1018' : '#f5f3ef' }}>
       <SafeTopBar dark={dark}/>
 
       {/* Search bar + filter button */}
@@ -3435,22 +3389,51 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
       </div>
 
       {/* Filter dropdown */}
-      {showFilterDropdown && !showPanel && (
+      {showFilterDropdown && !showSearch && (
         <>
           <div onClick={() => setShowFilterDropdown(false)} style={{ position: 'absolute', inset: 0, zIndex: 28 }}/>
           <div style={{
             position: 'absolute',
             top: `calc(${TOP} + 62px)`,
-            left: 12, right: 12,
-            zIndex: 29,
+            left: 12, right: 12, zIndex: 29,
             borderRadius: 18,
             background: dark ? 'rgba(20,22,36,0.97)' : 'rgba(252,250,246,0.97)',
             backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
             boxShadow: '0 4px 24px rgba(0,0,0,0.16)',
             padding: '14px 16px 16px',
           }}>
+            {/* By Friend */}
+            {friendProfiles.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Friend</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button onClick={() => setFilterFriend(null)} style={{
+                    border: 0, cursor: 'pointer', borderRadius: 20, padding: '7px 15px',
+                    fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                    background: !filterFriend ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                    color: !filterFriend ? 'white' : labelText,
+                  }}>All</button>
+                  {friendProfiles.map(p => {
+                    const sel = filterFriend === p.id;
+                    return (
+                      <button key={p.id} onClick={() => setFilterFriend(sel ? null : p.id)} style={{
+                        border: 0, cursor: 'pointer', borderRadius: 20, padding: '7px 13px',
+                        fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                        background: sel ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                        color: sel ? 'white' : labelText,
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: sel ? 'rgba(255,255,255,0.75)' : (catColors.restaurant || accent), flexShrink: 0 }}/>
+                        {p.display_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* Type */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Category</div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Type</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[{id:null,label:'All'},{id:'restaurant',label:'Eat'},{id:'hotel',label:'Stay'},{id:'attraction',label:'See'},{id:'experience',label:'Do'}].map(c => {
                   const sel = filterCategory === c.id;
@@ -3466,8 +3449,9 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                 })}
               </div>
             </div>
+            {/* Rating */}
             <div>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Min. rating</div>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, color: mutedText, textTransform: 'uppercase', marginBottom: 8 }}>Min. Rating</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[{val:null,label:'Any'},{val:1,label:'1★+'},{val:2,label:'2★+'},{val:3,label:'3★+'},{val:4,label:'4★+'},{val:5,label:'5★'}].map(r => {
                   const sel = filterRating === r.val;
@@ -3475,7 +3459,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                     <button key={String(r.val)} onClick={() => setFilterRating(r.val)} style={{
                       border: 0, cursor: 'pointer', borderRadius: 20, padding: '7px 15px',
                       fontFamily: SANS, fontSize: 13, fontWeight: 600,
-                      background: sel ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                      background: sel ? '#c89e54' : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
                       color: sel ? 'white' : labelText,
                     }}>{r.label}</button>
                   );
@@ -3486,8 +3470,8 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
         </>
       )}
 
-      {/* Search results panel — only shown while actively searching */}
-      {showPanel && (
+      {/* People search results panel */}
+      {showSearch && (
         <div style={{ position: 'absolute', top: PANEL_TOP, left: 12, right: 12, bottom: PANEL_BOT, zIndex: 25, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <GlassSurface dark={dark} radius={18} style={{ overflow: 'hidden' }}>
             {searching ? (
@@ -3510,128 +3494,96 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
         </div>
       )}
 
-      {/* ── Friends Feed Panel ── always in DOM; translateY controls visibility */}
-      {!showPanel && (
-        <>
-          <div ref={panelRef} style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            height: 'calc(52% + 90px)',
-            zIndex: 20, display: 'flex', flexDirection: 'column',
-            borderTopLeftRadius: 22, borderTopRightRadius: 22,
-            background: dark ? 'rgba(16,17,26,0.94)' : 'rgba(250,248,243,0.94)',
-            backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)',
-            boxShadow: '0 -6px 32px rgba(0,0,0,0.15)',
-            overflow: 'hidden', willChange: 'transform',
-          }}>
-            {/* Draggable handle + header */}
-            <div onTouchStart={onFeedTouchStart} onTouchMove={onFeedTouchMove} onTouchEnd={onFeedTouchEnd}
-              style={{ flexShrink: 0, touchAction: 'none', cursor: 'grab' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 5px' }}>
-                <div style={{ width: 38, height: 4, borderRadius: 999, background: dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)' }}/>
-              </div>
-              <div style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, fontStyle: 'italic', color: labelText }}>Friends' Reviews</span>
-                {feedEntries.length > 0 && (
-                  <span style={{ fontFamily: SANS, fontSize: 11, color: mutedText }}>{feedEntries.length} review{feedEntries.length !== 1 ? 's' : ''}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Scrollable feed */}
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 90 }}>
-              {loading ? (
-                <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13, color: mutedText }}>Loading…</div>
-              ) : feedEntries.length === 0 ? (
-                <div style={{ padding: '28px 20px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, marginBottom: 6 }}>
-                    {friendships.length === 0 ? 'Add friends to see their reviews' : 'No reviews yet'}
-                  </div>
-                  <div style={{ fontFamily: SANS, fontSize: 12.5, color: mutedText, lineHeight: 1.5 }}>
-                    {friendships.length === 0
-                      ? 'Search for people above to connect with friends.'
-                      : "When your friends log reviews, they'll show up here."}
-                  </div>
-                </div>
-              ) : feedEntries.map((e, i) => {
-                const cc = catColors[e.category] || accent;
-                const hasPics = e.photos?.length > 0;
-                return (
-                  <div key={e.id} onClick={() => { setViewingFeedEntry(e); setFeedDetailOpen(true); }} style={{
-                    padding: '14px 16px', cursor: 'pointer',
-                    borderBottom: i < feedEntries.length - 1
-                      ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none',
-                  }}>
-                    {/* Friend header row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      <Avatar src={e._ownerProfile?.avatar_url} name={e._ownerProfile?.display_name} color={cc} size={36}/>
-                      <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: labelText, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {e._ownerProfile?.display_name || 'Friend'}
-                      </span>
-                      <span style={{ fontFamily: SANS, fontSize: 11.5, color: mutedText, flexShrink: 0 }}>
-                        {relTime(e.created_at)}
-                      </span>
-                    </div>
-                    {/* Content row: text left, photo right */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 700, color: labelText }}>{e.place || e.name}</span>
-                          {e.category && (
-                            <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 600, color: cc, background: `${cc}1a`, borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>
-                              {catLabel[e.category] || e.category}
-                            </span>
-                          )}
-                        </div>
-                        {e.location && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontFamily: SANS, fontSize: 12, color: mutedText }}>
-                            <MinkoIcon name="pin" size={11} color={mutedText} strokeWidth={2}/>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location}</span>
-                          </div>
-                        )}
-                        {e.rating > 0 && <div style={{ marginTop: 5 }}><Stars n={e.rating} size={12.5} color={cc}/></div>}
-                        {e.note && (
-                          <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 13, color: mutedText, fontStyle: 'italic', lineHeight: 1.45, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                            "{e.note}"
-                          </div>
-                        )}
-                      </div>
-                      {hasPics && (
-                        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          <img src={e.photos[0]} alt="" style={{ width: 74, height: 74, borderRadius: 10, objectFit: 'cover', display: 'block' }}/>
-                          {e.photos[1] && (
-                            <img src={e.photos[1]} alt="" style={{ width: 74, height: 38, borderRadius: 8, objectFit: 'cover', display: 'block' }}/>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      {/* Full-screen feed */}
+      {!showSearch && (
+        <div style={{
+          position: 'absolute',
+          top: `calc(${TOP} + 62px)`,
+          left: 0, right: 0, bottom: 0,
+          overflowY: 'auto', overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {/* Feed header */}
+          <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: labelText }}>Friends' Reviews</span>
+            {feedEntries.length > 0 && (
+              <span style={{ fontFamily: SANS, fontSize: 12, color: mutedText }}>{feedEntries.length} review{feedEntries.length !== 1 ? 's' : ''}</span>
+            )}
           </div>
 
-          {/* Pill tab — floats above nav bar when panel is dismissed */}
-          {!panelOpen && (
-            <button onClick={() => setPanelOpen(true)} style={{
-              position: 'absolute',
-              bottom: `calc(${PANEL_BOT} + 10px)`,
-              left: '50%', transform: 'translateX(-50%)',
-              zIndex: 155, border: 0, cursor: 'pointer',
-              background: dark ? 'rgba(24,25,38,0.96)' : 'rgba(250,248,243,0.97)',
-              backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-              borderRadius: 20, padding: '8px 18px',
-              display: 'flex', alignItems: 'center', gap: 6,
-              boxShadow: '0 2px 18px rgba(0,0,0,0.2)',
-              fontFamily: SANS, fontSize: 13, fontWeight: 600, color: labelText, whiteSpace: 'nowrap',
-            }}>
-              <MinkoIcon name="chevron-right" size={13} strokeWidth={2.5} color={accent} style={{ transform: 'rotate(-90deg)' }}/>
-              Friends' Reviews
-            </button>
-          )}
-        </>
+          {loading ? (
+            <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13, color: mutedText }}>Loading…</div>
+          ) : feedEntries.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, marginBottom: 8 }}>
+                {friendships.length === 0 ? 'Add friends to see their reviews' : 'No reviews found'}
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 13, color: mutedText, lineHeight: 1.5 }}>
+                {friendships.length === 0
+                  ? 'Search for people above to connect with friends.'
+                  : hasFilters
+                    ? 'Try adjusting your filters.'
+                    : "When your friends log reviews, they'll show up here."}
+              </div>
+            </div>
+          ) : feedEntries.map((e, i) => {
+            const cc = catColors[e.category] || accent;
+            const hasPics = e.photos?.length > 0;
+            return (
+              <div key={e.id} onClick={() => { setViewingFeedEntry(e); setFeedDetailOpen(true); }} style={{
+                padding: '14px 16px', cursor: 'pointer',
+                borderBottom: i < feedEntries.length - 1
+                  ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}` : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <Avatar src={e._ownerProfile?.avatar_url} name={e._ownerProfile?.display_name} color={cc} size={36}/>
+                  <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: labelText, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {e._ownerProfile?.display_name || 'Friend'}
+                  </span>
+                  <span style={{ fontFamily: SANS, fontSize: 11.5, color: mutedText, flexShrink: 0 }}>{relTime(e.created_at)}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: SANS, fontSize: 15.5, fontWeight: 700, color: labelText }}>{e.place || e.name}</span>
+                      {e.category && (
+                        <span style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 600, color: cc, background: `${cc}1a`, borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>
+                          {catLabel[e.category] || e.category}
+                        </span>
+                      )}
+                    </div>
+                    {e.location && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontFamily: SANS, fontSize: 12, color: mutedText }}>
+                        <MinkoIcon name="pin" size={11} color={mutedText} strokeWidth={2}/>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.location}</span>
+                      </div>
+                    )}
+                    {e.rating > 0 && <div style={{ marginTop: 5 }}><Stars n={e.rating} size={12.5} color={cc}/></div>}
+                    {e.note && (
+                      <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 13, color: mutedText, fontStyle: 'italic', lineHeight: 1.45, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        "{e.note}"
+                      </div>
+                    )}
+                  </div>
+                  {hasPics && (
+                    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <img src={e.photos[0]} alt="" style={{ width: 74, height: 74, borderRadius: 10, objectFit: 'cover', display: 'block' }}/>
+                      {e.photos[1] && (
+                        <img src={e.photos[1]} alt="" style={{ width: 74, height: 38, borderRadius: 8, objectFit: 'cover', display: 'block' }}/>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Bottom padding for nav bar */}
+          <div style={{ height: 'max(90px, calc(env(safe-area-inset-bottom) + 90px))' }}/>
+        </div>
       )}
 
-      {/* Feed entry detail — uses BottomSheet so swipe-down anywhere dismisses */}
+      {/* Feed entry detail */}
       <BottomSheet open={feedDetailOpen} onClose={() => setFeedDetailOpen(false)} dark={dark}>
         <PlaceDetailSheet
           entry={viewingFeedEntry} dark={dark} accent={accent}
@@ -3659,7 +3611,6 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 
       <BottomNav {...navProps} dark={dark} accent={accent} onLog={onLog}/>
 
-      {/* Friend full-page profile view */}
       {viewingProfile && (
         <FriendProfilePage
           key={viewingProfile.id}

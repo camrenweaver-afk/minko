@@ -249,10 +249,11 @@ function App() {
   const activeFriend = activeFriendEntry?._ownerProfile || null;
   const friendsAtBuca = [];
 
-  const previewEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
-  const previewFriend = screen === 'friends' ? activeFriend : null;
-  const isFriendMode = screen === 'friends';
-  const detailEntry = screen === 'friends' ? activeFriendEntry : activeEntry;
+  // A friend pin can be tapped from the home globe too, so check activeFriendPin first
+  const isFriendMode = !!(activeFriendPin && activeFriendEntry);
+  const previewEntry = isFriendMode ? activeFriendEntry : activeEntry;
+  const previewFriend = isFriendMode ? activeFriend : null;
+  const detailEntry = isFriendMode ? activeFriendEntry : activeEntry;
 
   const appShell = isMobile ? {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

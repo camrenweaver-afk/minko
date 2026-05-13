@@ -3879,8 +3879,8 @@ function NotificationsPage({ dark, accent, user, onBack }) {
   const sub  = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,50,0.45)';
   const div  = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
-  const linkStyle = { fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(0,0,0,0.2)', textUnderlineOffset: 2, background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit' };
-  const placeStyle = { fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: accent + '88', textUnderlineOffset: 2, color: accent, background: 'none', border: 0, padding: 0, font: 'inherit' };
+  const linkStyle = { fontWeight: 700, cursor: 'pointer', textDecoration: 'none', background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit' };
+  const placeStyle = { fontWeight: 700, cursor: 'pointer', textDecoration: 'none', background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit' };
 
   return (
     <>

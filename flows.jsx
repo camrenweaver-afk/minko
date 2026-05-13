@@ -375,6 +375,7 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   const [showDelete, setShowDelete] = useState2(false);
   const [friendReviewEntry, setFriendReviewEntry] = useState2(null);
   const [loadingFriendReview, setLoadingFriendReview] = useState2(false);
+  const [viewingFriendProfile, setViewingFriendProfile] = useState2(null);
 
   useEffect2(() => { if (item) setLocalItem(item); }, [item?.id]);
   if (!item) return null;
@@ -688,9 +689,24 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
               friendMode={true} friend={friendReviewEntry._ownerProfile}
               friendsAtPlace={[]} user={user}
               onClose={() => setFriendReviewEntry(null)}
+              onFriendProfile={friendReviewEntry._ownerProfile ? () => setViewingFriendProfile(friendReviewEntry._ownerProfile) : undefined}
             />
           </BottomSheet>
         </div>
+      )}
+
+      {/* Friend profile — opened from the review detail */}
+      {viewingFriendProfile && (
+        <FriendProfilePage
+          key={viewingFriendProfile.id}
+          profile={viewingFriendProfile}
+          dark={dark} accent={accent}
+          currentUserId={user?.id}
+          user={user}
+          onBack={() => setViewingFriendProfile(null)}
+          onFriendshipChanged={() => {}}
+          zIndex={20}
+        />
       )}
     </SlideOverlay>
   );
@@ -3629,6 +3645,7 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           friendsAtPlace={[]} user={user}
           onClose={() => setFeedDetailOpen(false)}
           onSaveWishlist={(entry) => { setFeedDetailOpen(false); setFeedWishlistEntry(entry); }}
+          onFriendProfile={viewingFeedEntry?._ownerProfile ? () => { setFeedDetailOpen(false); setViewingProfile(viewingFeedEntry._ownerProfile); } : undefined}
         />
       </BottomSheet>
 

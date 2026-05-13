@@ -373,11 +373,27 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   const [showEdit, setShowEdit] = useState2(false);
   const [showPhotos, setShowPhotos] = useState2(false);
   const [showDelete, setShowDelete] = useState2(false);
+  const [friendReviewEntry, setFriendReviewEntry] = useState2(null);
+  const [loadingFriendReview, setLoadingFriendReview] = useState2(false);
 
   useEffect2(() => { if (item) setLocalItem(item); }, [item?.id]);
   if (!item) return null;
 
   const catColor = (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[localItem.category]) || accent;
+
+  const openFriendReview = async () => {
+    if (!localItem.friend_review_entry_id || !window.sb) return;
+    setLoadingFriendReview(true);
+    const { data } = await window.sb.from('entries').select(`
+      *,
+      profile:profiles!user_id(id, display_name, avatar_url)
+    `).eq('id', localItem.friend_review_entry_id).single();
+    setLoadingFriendReview(false);
+    if (data) {
+      const norm = window.normalizeFriendEntry || ((e, p) => ({ ...e, _ownerProfile: p || null, photos: Array.isArray(e.photos) ? e.photos : [] }));
+      setFriendReviewEntry(norm(data, data.profile));
+    }
+  };
 
   const assignCollection = async (id) => {
     const updated = { ...localItem, collection_id: id };
@@ -509,9 +525,13 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
 
           {/* Friend review context */}
           {localItem.friend_review_user && (localItem.friend_review_note || localItem.friend_review_rating > 0) && (
-            <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 20,
+            <button onClick={localItem.friend_review_entry_id ? openFriendReview : undefined} style={{
+              width: '100%', textAlign: 'left', border: 0, cursor: localItem.friend_review_entry_id ? 'pointer' : 'default',
+              borderRadius: 14, padding: '14px 16px', marginBottom: 20, display: 'block',
               background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)',
-              border: dark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(20,30,60,0.08)' }}>
+              outline: 'none',
+              boxShadow: localItem.friend_review_entry_id ? (dark ? 'inset 0 0 0 1px rgba(255,255,255,0.12)' : 'inset 0 0 0 1px rgba(20,30,60,0.12)') : (dark ? 'inset 0 0 0 1px rgba(255,255,255,0.09)' : 'inset 0 0 0 1px rgba(20,30,60,0.08)'),
+            }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: localItem.friend_review_note ? 10 : 0 }}>
                 {localItem.friend_review_avatar
                   ? <img src={localItem.friend_review_avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}/>
@@ -535,15 +555,21 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
                     ))}
                   </div>
                 )}
+                {localItem.friend_review_entry_id && (
+                  <MinkoIcon name="chevron-right" size={16} color={dark ? 'rgba(255,255,255,0.3)' : 'rgba(20,20,30,0.3)'} strokeWidth={2}/>
+                )}
               </div>
-              {localItem.friend_review_note && (
+              {loadingFriendReview && (
+                <div style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', paddingLeft: 36 }}>Loading…</div>
+              )}
+              {localItem.friend_review_note && !loadingFriendReview && (
                 <p style={{ margin: 0, fontFamily: SERIF, fontSize: 15.5, lineHeight: 1.45,
                   color: dark ? 'rgba(245,241,232,0.75)' : 'rgba(26,26,46,0.65)',
                   fontStyle: 'italic', paddingLeft: 36 }}>
                   "{localItem.friend_review_note}"
                 </p>
               )}
-            </div>
+            </button>
           )}
 
           {/* Links */}
@@ -647,6 +673,20 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
           onConfirm={() => { setShowDelete(false); if (onDeleted) onDeleted(); }}
         />
       </InlineSheet>
+
+      {/* Friend's full review detail */}
+      {friendReviewEntry && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+          <BottomSheet open={true} onClose={() => setFriendReviewEntry(null)} dark={dark}>
+            <PlaceDetailSheet
+              entry={friendReviewEntry} dark={dark} accent={accent}
+              friendMode={true} friend={friendReviewEntry._ownerProfile}
+              friendsAtPlace={[]} user={user}
+              onClose={() => setFriendReviewEntry(null)}
+            />
+          </BottomSheet>
+        </div>
+      )}
     </SlideOverlay>
   );
 }
@@ -754,6 +794,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         location: place.sub || null,
         lon: place.lon || null,
         lat: place.lat || null,
+        friend_review_entry_id: sourceEntry?.id || null,
         friend_review_note: sourceEntry?.note || null,
         friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,
         friend_review_user: sourceEntry?._ownerProfile?.display_name || null,

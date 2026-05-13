@@ -849,16 +849,19 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Fetch full coords via Places Details on tap
+  // Fetch full coords + photos via Places Details on tap
   const selectPlace = (r) => {
     setLoading(true);
     window._gPlacesSvc.getDetails(
-      { placeId: r.place_id, fields: ['geometry', 'name', 'formatted_address', 'types'] },
-      (place, status) => {
-        const lon = status === 'OK' ? (place.geometry?.location?.lng() ?? null) : null;
-        const lat = status === 'OK' ? (place.geometry?.location?.lat() ?? null) : null;
+      { placeId: r.place_id, fields: ['geometry', 'name', 'formatted_address', 'types', 'photos'] },
+      (details, status) => {
+        const lon = status === 'OK' ? (details.geometry?.location?.lng() ?? null) : null;
+        const lat = status === 'OK' ? (details.geometry?.location?.lat() ?? null) : null;
+        const googlePhotos = (status === 'OK' && details.photos)
+          ? details.photos.slice(0, 5).map(p => p.getUrl({ maxWidth: 1200 }))
+          : [];
         setLoading(false);
-        setPlace({ ...r, lon, lat });
+        setPlace({ ...r, lon, lat, google_photos: googlePhotos });
         setCategory(googleTypesToMinko(r.poi_categories));
       }
     );
@@ -876,6 +879,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         location: place.sub || null,
         lon: place.lon || null,
         lat: place.lat || null,
+        photos: place.google_photos?.length ? place.google_photos : [],
         friend_review_entry_id: sourceEntry?.id || null,
         friend_review_note: sourceEntry?.note || null,
         friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,
@@ -967,9 +971,19 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         <div style={{ padding: '0 20px' }}>
           {place && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12,
-              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)', marginBottom: 18 }}>
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)', marginBottom: place.google_photos?.length ? 12 : 18 }}>
               <MinkoIcon name="bookmark" size={16} color={accent} strokeWidth={2}/>
               <div style={{ flex: 1, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{place.name}</div>
+            </div>
+          )}
+          {place?.google_photos?.length > 0 && (
+            <div style={{ margin: '0 -20px 18px', overflowX: 'auto', display: 'flex', gap: 8, padding: '0 20px', scrollbarWidth: 'none' }}>
+              {place.google_photos.map((url, i) => (
+                <img key={i} src={url} alt="" style={{
+                  height: 110, width: 160, flexShrink: 0, borderRadius: 12,
+                  objectFit: 'cover', display: 'block',
+                }}/>
+              ))}
             </div>
           )}
           {sourceEntry && (sourceEntry.note || sourceEntry.rating > 0) && (

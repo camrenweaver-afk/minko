@@ -484,6 +484,7 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   );
 
   return (
+  <>
     <SlideOverlay open={open} onBack={onBack} dark={dark} title="">
       <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
         {/* Photo gallery */}
@@ -744,26 +745,31 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
               friendMode={true} friend={friendReviewEntry._ownerProfile}
               friendsAtPlace={[]} user={user}
               onClose={() => setFriendReviewEntry(null)}
-              onFriendProfile={friendReviewEntry._ownerProfile ? () => setViewingFriendProfile(friendReviewEntry._ownerProfile) : undefined}
+              onFriendProfile={friendReviewEntry._ownerProfile ? () => {
+                setFriendReviewEntry(null);
+                setViewingFriendProfile(friendReviewEntry._ownerProfile);
+              } : undefined}
             />
           </BottomSheet>
         </div>
       )}
-
-      {/* Friend profile — opened from the review detail */}
-      {viewingFriendProfile && (
-        <FriendProfilePage
-          key={viewingFriendProfile.id}
-          profile={viewingFriendProfile}
-          dark={dark} accent={accent}
-          currentUserId={user?.id}
-          user={user}
-          onBack={() => setViewingFriendProfile(null)}
-          onFriendshipChanged={() => {}}
-          zIndex={20}
-        />
-      )}
     </SlideOverlay>
+
+    {/* Friend profile — rendered as SIBLING to SlideOverlay so its swipe-back
+        gesture has no DOM nesting conflict with SlideOverlay's gesture */}
+    {viewingFriendProfile && open && (
+      <FriendProfilePage
+        key={viewingFriendProfile.id}
+        profile={viewingFriendProfile}
+        dark={dark} accent={accent}
+        currentUserId={user?.id}
+        user={user}
+        onBack={() => setViewingFriendProfile(null)}
+        onFriendshipChanged={() => {}}
+        zIndex={165}
+      />
+    )}
+  </>
   );
 }
 

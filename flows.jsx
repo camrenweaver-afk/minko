@@ -755,7 +755,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         lon: place.lon || null,
         lat: place.lat || null,
         friend_review_note: sourceEntry?.note || null,
-        friend_review_rating: sourceEntry?.rating || null,
+        friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,
         friend_review_user: sourceEntry?._ownerProfile?.display_name || null,
         friend_review_avatar: sourceEntry?._ownerProfile?.avatar_url || null,
       });

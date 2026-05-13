@@ -15,6 +15,7 @@ function useSwipeBack(onBack) {
 
     const onTouchStart = (e) => {
       if (e.touches[0].clientX > 28) return; // only from left edge
+      e.stopPropagation(); // prevent parent swipe-back handlers from also firing
       drag.current = { active: true, startX: e.touches[0].clientX, startTime: Date.now(), dx: 0 };
     };
 
@@ -24,6 +25,7 @@ function useSwipeBack(onBack) {
       if (dx <= 0) { drag.current.active = false; return; }
       drag.current.dx = dx;
       e.preventDefault();
+      e.stopPropagation();
       el.style.transition = 'none';
       el.style.transform   = `translateX(${dx}px)`;
     };

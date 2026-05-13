@@ -3775,16 +3775,16 @@ function NotificationsPage({ dark, accent, user, onBack }) {
     (async () => {
       setLoading(true);
       try {
-        // 1. Get user's own entries (id + name)
+        // 1. Get user's own entries (id + place name)
         const { data: userEntries } = await window.sb
           .from('entries')
-          .select('id, name')
+          .select('id, place')
           .eq('user_id', user.id);
 
         if (!userEntries?.length) { setItems([]); setLoading(false); return; }
 
         const entryIds = userEntries.map(e => e.id);
-        const entryNameMap = Object.fromEntries(userEntries.map(e => [e.id, e.name]));
+        const entryNameMap = Object.fromEntries(userEntries.map(e => [e.id, e.place]));
 
         // 2. Fetch likes on those entries (exclude own likes)
         const { data: likes } = await window.sb

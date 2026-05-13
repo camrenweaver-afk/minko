@@ -3,6 +3,59 @@
 const { useState: useState2, useEffect: useEffect2, useRef: useRef2 } = React;
 
 // ─────────────────────────────────────────────────────────────
+// SWIPE-BACK HOOK — left-edge drag to dismiss any slide-over screen
+// ─────────────────────────────────────────────────────────────
+function useSwipeBack(onBack) {
+  const elRef = useRef2(null);
+  const drag  = useRef2({ active: false, startX: 0, startTime: 0, dx: 0 });
+
+  useEffect2(() => {
+    const el = elRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e) => {
+      if (e.touches[0].clientX > 28) return; // only from left edge
+      drag.current = { active: true, startX: e.touches[0].clientX, startTime: Date.now(), dx: 0 };
+    };
+
+    const onTouchMove = (e) => {
+      if (!drag.current.active) return;
+      const dx = e.touches[0].clientX - drag.current.startX;
+      if (dx <= 0) { drag.current.active = false; return; }
+      drag.current.dx = dx;
+      e.preventDefault();
+      el.style.transition = 'none';
+      el.style.transform   = `translateX(${dx}px)`;
+    };
+
+    const onTouchEnd = () => {
+      if (!drag.current.active) return;
+      drag.current.active = false;
+      const { dx, startTime } = drag.current;
+      const velocity = dx / Math.max(Date.now() - startTime, 1);
+      el.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+      if (dx > 80 || velocity > 0.35) {
+        el.style.transform = 'translateX(100%)';
+        setTimeout(onBack, 280);
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true  });
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true  });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove',  onTouchMove);
+      el.removeEventListener('touchend',   onTouchEnd);
+    };
+  }, [onBack]);
+
+  return elRef;
+}
+
+// ─────────────────────────────────────────────────────────────
 // PHOTO UPLOAD UTILITY
 // ─────────────────────────────────────────────────────────────
 async function uploadPhoto(userId, tableKind, entryId, file) {
@@ -2040,9 +2093,19 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
 
 // Shared slide-in full-screen overlay with back button
 function SlideOverlay({ open, onBack, dark, title, children }) {
-  const bg = dark ? '#13141b' : '#faf8f3';
+  const bg      = dark ? '#13141b' : '#faf8f3';
+  const panelRef = useSwipeBack(onBack);
+
+  // Sync open/close animation via DOM ref so the gesture handler can also drive it
+  useEffect2(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+    el.style.transform  = open ? 'translateX(0)' : 'translateX(100%)';
+  }, [open]);
+
   return (
-    <div style={{
+    <div ref={panelRef} style={{
       position: 'absolute', inset: 0, zIndex: 160,
       background: bg,
       transform: open ? 'translateX(0)' : 'translateX(100%)',
@@ -2188,6 +2251,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const [friendsListLoading, setFriendsListLoading] = useState2(false);
   const [viewingSubFriend, setViewingSubFriend] = useState2(null);
   const [wishlistSaveEntry, setWishlistSaveEntry] = useState2(null);
+  const pageRef = useSwipeBack(onBack);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -2264,7 +2328,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const pTopRated = [...pEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column', animation: 'minko-fade-in 0.18s ease' }}>
+    <div ref={pageRef} style={{ position: 'absolute', inset: 0, zIndex, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column', transform: 'translateX(0)', animation: 'minko-slide-in-right 0.28s cubic-bezier(0.32,0.72,0,1)' }}>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip' }}>
 
         {/* Back button row */}

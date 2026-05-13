@@ -3021,7 +3021,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
           dark={dark} accent={accent}
           scrollable={false}
           pins={entries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
-          onPinClick={onPin}
+          onPinClick={(id) => { const e = entries.find(x => x.id === id); if (e) setViewingReview(e); }}
         />
       </div>
 

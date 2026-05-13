@@ -233,15 +233,15 @@ function MinkoGlobe({
 
       updatePins();
 
-      if (!isMini) {
-        // Pin-layer clicks fire first; flag prevents the canvas handler firing too
-        let pinJustClicked = false;
+      // Pin-layer clicks — available on both full globe and mini map
+      let pinJustClicked = false;
+      map.on('click', 'minko-pins-layer', (e) => {
+        pinJustClicked = true;
+        const id = e.features?.[0]?.properties?.id;
+        if (id) onPinClickRef.current?.(id);
+      });
 
-        map.on('click', 'minko-pins-layer', (e) => {
-          pinJustClicked = true;
-          const id = e.features?.[0]?.properties?.id;
-          if (id) onPinClickRef.current?.(id);
-        });
+      if (!isMini) {
 
         map.on('click', (e) => {
           if (pinJustClicked) { pinJustClicked = false; return; }

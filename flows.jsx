@@ -851,8 +851,10 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
 
   // When an initialPlace is injected (long-press / friend review) it has no Google photos.
   // Fetch them via findPlaceFromQuery → getDetails as soon as we land on step 2.
+  // Skip entirely if the source entry already has photos — those take priority.
   useEffect2(() => {
     if (!place || place.google_photos != null) return; // already fetched or step-1 search handled it
+    if (sourceEntry?.photos?.length) return; // friend's own photos take priority
     if (!window._gPlacesSvc) return;
 
     const fetchPhotos = (placeId) => {
@@ -917,7 +919,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         location: place.sub || null,
         lon: place.lon || null,
         lat: place.lat || null,
-        photos: place.google_photos?.length ? place.google_photos : [],
+        photos: sourceEntry?.photos?.length ? sourceEntry.photos : (place.google_photos?.length ? place.google_photos : []),
         friend_review_entry_id: sourceEntry?.id || null,
         friend_review_note: sourceEntry?.note || null,
         friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,
@@ -1014,16 +1016,21 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
               <div style={{ flex: 1, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{place.name}</div>
             </div>
           )}
-          {place?.google_photos?.length > 0 && (
-            <div style={{ margin: '0 -20px 18px', overflowX: 'auto', display: 'flex', gap: 8, padding: '0 20px', scrollbarWidth: 'none' }}>
-              {place.google_photos.map((url, i) => (
-                <img key={i} src={url} alt="" style={{
-                  height: 110, width: 160, flexShrink: 0, borderRadius: 12,
-                  objectFit: 'cover', display: 'block',
-                }}/>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const previewPhotos = sourceEntry?.photos?.length
+              ? sourceEntry.photos
+              : (place?.google_photos?.length ? place.google_photos : []);
+            return previewPhotos.length > 0 ? (
+              <div style={{ margin: '0 -20px 18px', overflowX: 'auto', display: 'flex', gap: 8, padding: '0 20px', scrollbarWidth: 'none' }}>
+                {previewPhotos.map((url, i) => (
+                  <img key={i} src={url} alt="" style={{
+                    height: 110, width: 160, flexShrink: 0, borderRadius: 12,
+                    objectFit: 'cover', display: 'block',
+                  }}/>
+                ))}
+              </div>
+            ) : null;
+          })()}
           {sourceEntry && (sourceEntry.note || sourceEntry.rating > 0) && (
             <div style={{ borderRadius: 14, padding: '14px 16px', marginBottom: 18,
               background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)',

@@ -384,14 +384,19 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
   const openFriendReview = async () => {
     if (!localItem.friend_review_entry_id || !window.sb) return;
     setLoadingFriendReview(true);
-    const { data } = await window.sb.from('entries').select(`
-      *,
-      profile:profiles!user_id(id, display_name, avatar_url)
-    `).eq('id', localItem.friend_review_entry_id).single();
+    const { data } = await window.sb.from('entries')
+      .select('*')
+      .eq('id', localItem.friend_review_entry_id)
+      .single();
     setLoadingFriendReview(false);
     if (data) {
+      // Build profile from the data already stored on the wishlist item
+      const profile = {
+        display_name: localItem.friend_review_user || null,
+        avatar_url: localItem.friend_review_avatar || null,
+      };
       const norm = window.normalizeFriendEntry || ((e, p) => ({ ...e, _ownerProfile: p || null, photos: Array.isArray(e.photos) ? e.photos : [] }));
-      setFriendReviewEntry(norm(data, data.profile));
+      setFriendReviewEntry(norm(data, profile));
     }
   };
 

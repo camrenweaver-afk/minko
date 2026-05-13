@@ -3768,6 +3768,9 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
 function NotificationsPage({ dark, accent, user, onBack }) {
   const [items, setItems] = useState2([]);
   const [loading, setLoading] = useState2(true);
+  const [viewingProfile, setViewingProfile] = useState2(null);
+  const [viewingEntry, setViewingEntry] = useState2(null);
+  const [entryLoading, setEntryLoading] = useState2(false);
   const SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif';
 
   useEffect2(() => {
@@ -3809,6 +3812,8 @@ function NotificationsPage({ dark, accent, user, onBack }) {
           type: 'like',
           name: l.profiles?.display_name || 'Someone',
           avatar: l.profiles?.avatar_url || null,
+          userId: l.user_id,
+          entryId: l.entry_id,
           placeName: entryNameMap[l.entry_id] || 'your review',
           created_at: l.created_at,
         }));
@@ -3818,6 +3823,8 @@ function NotificationsPage({ dark, accent, user, onBack }) {
           type: 'comment',
           name: c.profiles?.display_name || 'Someone',
           avatar: c.profiles?.avatar_url || null,
+          userId: c.user_id,
+          entryId: c.entry_id,
           placeName: entryNameMap[c.entry_id] || 'your review',
           body: c.body,
           created_at: c.created_at,
@@ -3835,6 +3842,23 @@ function NotificationsPage({ dark, accent, user, onBack }) {
       }
     })();
   }, [user?.id]);
+
+  const openProfile = (item) => {
+    setViewingProfile({ id: item.userId, display_name: item.name, avatar_url: item.avatar });
+  };
+
+  const openEntry = async (item) => {
+    if (entryLoading) return;
+    setEntryLoading(true);
+    try {
+      const { data } = await window.sb.from('entries').select('*').eq('id', item.entryId).single();
+      if (data) setViewingEntry(data);
+    } catch (e) {
+      console.error('entry fetch error', e);
+    } finally {
+      setEntryLoading(false);
+    }
+  };
 
   function relTime(ts) {
     if (!ts) return '';
@@ -3855,119 +3879,158 @@ function NotificationsPage({ dark, accent, user, onBack }) {
   const sub  = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,50,0.45)';
   const div  = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
 
+  const linkStyle = { fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(0,0,0,0.2)', textUnderlineOffset: 2, background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit' };
+  const placeStyle = { fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: accent + '88', textUnderlineOffset: 2, color: accent, background: 'none', border: 0, padding: 0, font: 'inherit' };
+
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 200,
-      background: bg, display: 'flex', flexDirection: 'column',
-      fontFamily: SANS,
-    }}>
-      {/* Header */}
+    <>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '52px 20px 16px',
-        borderBottom: `1px solid ${div}`,
+        position: 'absolute', inset: 0, zIndex: 200,
+        background: bg, display: 'flex', flexDirection: 'column',
+        fontFamily: SANS,
       }}>
-        <button
-          onClick={onBack}
-          style={{
-            width: 36, height: 36, borderRadius: 12, border: 0, cursor: 'pointer',
-            background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: text, flexShrink: 0,
-          }}
-        >
-          <MinkoIcon name="chevron-right" size={18} strokeWidth={2} color={text}
-            style={{ transform: 'rotate(180deg)' }}
-          />
-        </button>
-        <span style={{ fontSize: 18, fontWeight: 700, color: text, letterSpacing: -0.4 }}>
-          Notifications
-        </span>
-      </div>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '52px 20px 16px',
+          borderBottom: `1px solid ${div}`,
+        }}>
+          <button
+            onClick={onBack}
+            style={{
+              width: 36, height: 36, borderRadius: 12, border: 0, cursor: 'pointer',
+              background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: text, flexShrink: 0,
+            }}
+          >
+            <MinkoIcon name="chevron-right" size={18} strokeWidth={2} color={text}
+              style={{ transform: 'rotate(180deg)' }}
+            />
+          </button>
+          <span style={{ fontSize: 18, fontWeight: 700, color: text, letterSpacing: -0.4 }}>
+            Notifications
+          </span>
+        </div>
 
-      {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: sub, fontSize: 14 }}>
-            Loading…
-          </div>
-        ) : items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 24px 0', color: sub }}>
-            <MinkoIcon name="bell" size={36} color={sub} strokeWidth={1.4}/>
-            <div style={{ marginTop: 16, fontSize: 15, fontWeight: 600, color: text }}>No notifications yet</div>
-            <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-              When friends like or comment on your reviews, you'll see it here.
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: sub, fontSize: 14 }}>
+              Loading…
             </div>
-          </div>
-        ) : (
-          items.map((item, idx) => (
-            <div key={item.key} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 12,
-              padding: '14px 0',
-              borderBottom: idx < items.length - 1 ? `1px solid ${div}` : 'none',
-            }}>
-              {/* Avatar */}
-              <div style={{
-                width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-                background: item.avatar ? 'transparent' : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,30,60,0.12)'),
-                overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {item.avatar
-                  ? <img src={item.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-                  : <MinkoIcon name="user" size={20} color={sub} strokeWidth={1.6}/>
-                }
+          ) : items.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '80px 24px 0', color: sub }}>
+              <MinkoIcon name="bell" size={36} color={sub} strokeWidth={1.4}/>
+              <div style={{ marginTop: 16, fontSize: 15, fontWeight: 600, color: text }}>No notifications yet</div>
+              <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+                When friends like or comment on your reviews, you'll see it here.
               </div>
+            </div>
+          ) : (
+            items.map((item, idx) => (
+              <div key={item.key} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '14px 0',
+                borderBottom: idx < items.length - 1 ? `1px solid ${div}` : 'none',
+              }}>
+                {/* Avatar — tappable to view profile */}
+                <button onClick={() => openProfile(item)} style={{
+                  width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                  background: item.avatar ? 'transparent' : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,30,60,0.12)'),
+                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: 0, cursor: 'pointer', padding: 0,
+                }}>
+                  {item.avatar
+                    ? <img src={item.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                    : <MinkoIcon name="user" size={20} color={sub} strokeWidth={1.6}/>
+                  }
+                </button>
 
-              {/* Text */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, lineHeight: 1.45, color: text }}>
-                  {item.type === 'like' ? (
-                    <>
-                      <span style={{ fontWeight: 700 }}>{item.name}</span>
-                      {' liked your review of '}
-                      <span style={{ fontWeight: 600 }}>{item.placeName}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontWeight: 700 }}>{item.name}</span>
-                      {' commented on '}
-                      <span style={{ fontWeight: 600 }}>{item.placeName}</span>
-                      {item.body ? (
-                        <div style={{
-                          marginTop: 5, fontSize: 13, color: sub, lineHeight: 1.4,
-                          background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                          borderRadius: 8, padding: '6px 10px',
-                          fontStyle: 'italic',
-                        }}>
-                          "{item.body}"
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, lineHeight: 1.45, color: text }}>
+                    {item.type === 'like' ? (
+                      <>
+                        <button onClick={() => openProfile(item)} style={linkStyle}>{item.name}</button>
+                        {' liked your review of '}
+                        <button onClick={() => openEntry(item)} style={placeStyle}>{item.placeName}</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => openProfile(item)} style={linkStyle}>{item.name}</button>
+                        {' commented on '}
+                        <button onClick={() => openEntry(item)} style={placeStyle}>{item.placeName}</button>
+                        {item.body ? (
+                          <div style={{
+                            marginTop: 5, fontSize: 13, color: sub, lineHeight: 1.4,
+                            background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                            borderRadius: 8, padding: '6px 10px',
+                            fontStyle: 'italic',
+                          }}>
+                            "{item.body}"
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: sub }}>{relTime(item.created_at)}</div>
                 </div>
-                <div style={{ marginTop: 4, fontSize: 12, color: sub }}>{relTime(item.created_at)}</div>
-              </div>
 
-              {/* Icon badge */}
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                background: item.type === 'like'
-                  ? (dark ? 'rgba(220,80,80,0.18)' : 'rgba(220,80,80,0.1)')
-                  : (dark ? 'rgba(79,91,213,0.25)' : 'rgba(79,91,213,0.12)'),
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <MinkoIcon
-                  name={item.type === 'like' ? 'heart-filled' : 'comment'}
-                  size={14}
-                  color={item.type === 'like' ? '#e05555' : accent}
-                  strokeWidth={1.6}
-                />
+                {/* Icon badge */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: item.type === 'like'
+                    ? (dark ? 'rgba(220,80,80,0.18)' : 'rgba(220,80,80,0.1)')
+                    : (dark ? 'rgba(79,91,213,0.25)' : 'rgba(79,91,213,0.12)'),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <MinkoIcon
+                    name={item.type === 'like' ? 'heart-filled' : 'comment'}
+                    size={14}
+                    color={item.type === 'like' ? '#e05555' : accent}
+                    strokeWidth={1.6}
+                  />
+                </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Friend profile — slides over the notifications page */}
+      {viewingProfile && (
+        <FriendProfilePage
+          key={viewingProfile.id}
+          profile={viewingProfile}
+          dark={dark} accent={accent}
+          currentUserId={user?.id}
+          user={user}
+          onBack={() => setViewingProfile(null)}
+          onFriendshipChanged={() => {}}
+          zIndex={210}
+        />
+      )}
+
+      {/* Review detail sheet */}
+      {(viewingEntry || entryLoading) && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 210 }}>
+          <BottomSheet open={true} onClose={() => setViewingEntry(null)} dark={dark}>
+            {entryLoading ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: sub }}>Loading…</div>
+            ) : (
+              <PlaceDetailSheet
+                entry={viewingEntry}
+                dark={dark} accent={accent}
+                user={user}
+                friendMode={false}
+                onClose={() => setViewingEntry(null)}
+              />
+            )}
+          </BottomSheet>
+        </div>
+      )}
+    </>
   );
 }
 

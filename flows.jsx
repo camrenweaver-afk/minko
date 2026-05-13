@@ -611,42 +611,42 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             </button>
           </div>
         </div>
-
-        {/* Inline sub-sheets */}
-        <InlineSheet show={showEdit} onDismiss={() => setShowEdit(false)}>
-          <EditItemFlow
-            entry={localItem} tableKind="wishlist" dark={dark} accent={accent}
-            onClose={() => setShowEdit(false)}
-            onConfirm={(fields) => {
-              setShowEdit(false);
-              const merged = { ...localItem, ...fields };
-              setLocalItem(merged);
-              if (onUpdated) onUpdated(merged);
-            }}
-          />
-        </InlineSheet>
-
-        <InlineSheet show={showPhotos} onDismiss={() => setShowPhotos(false)}>
-          <AddPhotoSheet
-            entry={localItem} tableKind="wishlist" user={user} dark={dark} accent={accent}
-            onClose={() => setShowPhotos(false)}
-            onSave={(photos) => {
-              setShowPhotos(false);
-              const updated = { ...localItem, photos };
-              setLocalItem(updated);
-              if (onUpdated) onUpdated(updated);
-            }}
-          />
-        </InlineSheet>
-
-        <InlineSheet show={showDelete} onDismiss={() => setShowDelete(false)}>
-          <DeleteConfirmSheet
-            entry={localItem} tableKind="wishlist" dark={dark} accent={accent}
-            onClose={() => setShowDelete(false)}
-            onConfirm={() => { setShowDelete(false); if (onDeleted) onDeleted(); }}
-          />
-        </InlineSheet>
       </div>
+
+      {/* Inline sub-sheets — outside scroll container so translateY(110%) doesn't add scroll height */}
+      <InlineSheet show={showEdit} onDismiss={() => setShowEdit(false)}>
+        <EditItemFlow
+          entry={localItem} tableKind="wishlist" dark={dark} accent={accent}
+          onClose={() => setShowEdit(false)}
+          onConfirm={(fields) => {
+            setShowEdit(false);
+            const merged = { ...localItem, ...fields };
+            setLocalItem(merged);
+            if (onUpdated) onUpdated(merged);
+          }}
+        />
+      </InlineSheet>
+
+      <InlineSheet show={showPhotos} onDismiss={() => setShowPhotos(false)}>
+        <AddPhotoSheet
+          entry={localItem} tableKind="wishlist" user={user} dark={dark} accent={accent}
+          onClose={() => setShowPhotos(false)}
+          onSave={(photos) => {
+            setShowPhotos(false);
+            const updated = { ...localItem, photos };
+            setLocalItem(updated);
+            if (onUpdated) onUpdated(updated);
+          }}
+        />
+      </InlineSheet>
+
+      <InlineSheet show={showDelete} onDismiss={() => setShowDelete(false)}>
+        <DeleteConfirmSheet
+          entry={localItem} tableKind="wishlist" dark={dark} accent={accent}
+          onClose={() => setShowDelete(false)}
+          onConfirm={() => { setShowDelete(false); if (onDeleted) onDeleted(); }}
+        />
+      </InlineSheet>
     </SlideOverlay>
   );
 }

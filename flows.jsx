@@ -495,13 +495,15 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
         )}
         {localItem.photos?.length > 1 && (
           <div style={{ margin: '8px 0 0', overflowX: 'auto', display: 'flex', gap: 8,
-            padding: '0 16px', scrollSnapType: 'x mandatory' }}>
+            scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ flexShrink: 0, width: 16 }}/>
             {localItem.photos.map((url, i) => (
               <div key={i} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
                 overflow: 'hidden', scrollSnapAlign: 'start' }}>
                 <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
               </div>
             ))}
+            <div style={{ flexShrink: 0, width: 16 }}/>
           </div>
         )}
         {!localItem.photos?.length && (
@@ -514,8 +516,27 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
 
         <div style={{ padding: '18px 20px 0' }}>
           <CategoryChip category={localItem.category} dark={dark}/>
-          <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: '4px 0 8px',
-            color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{localItem.place}</h2>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '4px 0 8px' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: 0, flex: 1,
+              color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{localItem.place}</h2>
+            {(() => {
+              const mapsUrl = (localItem.lat && localItem.lon)
+                ? `https://www.google.com/maps/search/?api=1&query=${localItem.lat},${localItem.lon}`
+                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([localItem.place, localItem.location].filter(Boolean).join(', '))}`;
+              return (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{
+                  flexShrink: 0, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '5px 10px', borderRadius: 20,
+                  background: dark ? 'rgba(255,255,255,0.09)' : 'rgba(20,30,60,0.07)',
+                  fontFamily: SANS, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                  color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.55)',
+                }}>
+                  <MinkoIcon name="pin" size={13} color={dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.55)'} strokeWidth={1.8}/>
+                  Maps
+                </a>
+              );
+            })()}
+          </div>
 
           {localItem.location && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
@@ -2189,7 +2210,7 @@ function SlideOverlay({ open, onBack, dark, title, children }) {
       pointerEvents: open ? 'auto' : 'none',
     }}>
       {/* Nav bar */}
-      <div style={{ paddingTop: 58, padding: '58px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: 'calc(env(safe-area-inset-top, 44px) + 10px) 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px 6px 0', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
           <MinkoIcon name="chevron-right" size={20} strokeWidth={2.2} style={{ transform: 'rotate(180deg)', display: 'block' }}/>
           <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500 }}>Back</span>

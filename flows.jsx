@@ -849,6 +849,44 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
     return () => clearTimeout(timer);
   }, [query]);
 
+  // When an initialPlace is injected (long-press / friend review) it has no Google photos.
+  // Fetch them via findPlaceFromQuery → getDetails as soon as we land on step 2.
+  useEffect2(() => {
+    if (!place || place.google_photos != null) return; // already fetched or step-1 search handled it
+    if (!window._gPlacesSvc) return;
+
+    const fetchPhotos = (placeId) => {
+      window._gPlacesSvc.getDetails(
+        { placeId, fields: ['photos'] },
+        (details, status) => {
+          const urls = (status === 'OK' && details.photos)
+            ? details.photos.slice(0, 5).map(p => p.getUrl({ maxWidth: 1200 }))
+            : [];
+          setPlace(prev => prev ? { ...prev, google_photos: urls } : prev);
+        }
+      );
+    };
+
+    if (place.place_id) {
+      fetchPhotos(place.place_id);
+    } else if (place.name && window._gPlacesSvc.findPlaceFromQuery) {
+      // Build a descriptive query using name + location string to narrow results
+      const q = place.sub ? `${place.name}, ${place.sub}` : place.name;
+      window._gPlacesSvc.findPlaceFromQuery(
+        { query: q, fields: ['place_id'] },
+        (results, status) => {
+          if (status === 'OK' && results?.[0]?.place_id) {
+            fetchPhotos(results[0].place_id);
+          } else {
+            setPlace(prev => prev ? { ...prev, google_photos: [] } : prev);
+          }
+        }
+      );
+    } else {
+      setPlace(prev => prev ? { ...prev, google_photos: [] } : prev);
+    }
+  }, [place?.name, place?.place_id]); // eslint-disable-line
+
   // Fetch full coords + photos via Places Details on tap
   const selectPlace = (r) => {
     setLoading(true);

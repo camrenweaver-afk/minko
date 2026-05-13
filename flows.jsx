@@ -1792,8 +1792,16 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   );
 
   const bg = dark ? '#13141b' : '#faf8f3';
+  const panelRef = useSwipeBack(onBack);
+  useEffect2(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+    el.style.transform  = open ? 'translateX(0)' : 'translateX(100%)';
+  }, [open]);
+
   return (
-    <div style={{
+    <div ref={panelRef} style={{
       position: 'absolute', inset: 0, zIndex: 160,
       background: bg,
       transform: open ? 'translateX(0)' : 'translateX(100%)',

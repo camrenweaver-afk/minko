@@ -59,7 +59,7 @@ window.initGooglePlaces = function() {
 <script type="text/babel" src="screens.jsx?v=42"></script>
 <script type="text/babel" src="flows.jsx?v=94"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
-<script type="text/babel" src="onboarding.jsx?v=10"></script>
+<script type="text/babel" src="onboarding.jsx?v=11"></script>
 
 <script type="text/babel">
 const { useState, useEffect } = React;
@@ -117,6 +117,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeNeedsName, setWelcomeNeedsName] = useState(false);
   const [entries, setEntries] = useState([]);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [drafts, setDrafts] = useState(() => {
@@ -142,10 +143,18 @@ function App() {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id', ignoreDuplicates: false }).then(() => {
           // Check welcomed flag — if false this is a new user who hasn't
-          // seen the welcome screen yet (works for email + Google OAuth)
-          window.sb.from('profiles').select('welcomed').eq('id', u.id).single()
+          // seen the welcome screen yet (works for email + Google OAuth).
+          // Email sign-ups also need a name prompt since OAuth provides it.
+          const isEmailSignup = u.app_metadata?.provider === 'email';
+          const hasNoRealName = !u.user_metadata?.full_name ||
+            u.user_metadata.full_name === u.email?.split('@')[0];
+          window.sb.from('profiles').select('welcomed, first_name').eq('id', u.id).single()
             .then(({ data }) => {
-              if (data && !data.welcomed) setShowWelcome(true);
+              if (data && !data.welcomed) {
+                const needsName = isEmailSignup && hasNoRealName && !data.first_name;
+                setWelcomeNeedsName(needsName);
+                setShowWelcome(true);
+              }
             });
         });
       }
@@ -524,6 +533,8 @@ function App() {
           {authReady && user && showWelcome && (
             <WelcomeScreen
               dark={dark} accent={accent}
+              needsName={welcomeNeedsName}
+              user={user}
               onComplete={() => {
                 setShowWelcome(false);
                 setShowLog(true);

@@ -397,12 +397,19 @@ window.OnboardingFlow = OnboardingFlow;
 // (email or Google OAuth). Lives outside OnboardingFlow so it
 // can render even when the user is already authenticated.
 // ─────────────────────────────────────────────────────────────
-function WelcomeScreen({ dark, accent, onComplete, onSkip }) {
+function WelcomeScreen({ dark, accent, onComplete, onSkip, needsName = false, user = null }) {
+  const [step, setStep] = React.useState(needsName ? 0 : 1);
+  const [firstName, setFirstName] = React.useState('');
+  const [lastName, setLastName]   = React.useState('');
+  const [saving, setSaving]       = React.useState(false);
+
   const bg = dark
     ? 'linear-gradient(160deg, #0e1018 0%, #161824 100%)'
     : 'linear-gradient(160deg, #f7f2ea 0%, #ece4d4 100%)';
   const textPrimary = dark ? '#f5f1e8' : '#1a1a2e';
   const textMuted = dark ? 'rgba(255,255,255,0.42)' : 'rgba(20,20,30,0.42)';
+  const inputBg = dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)';
+  const inputBorder = dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.1)';
 
   const destinations = ['Tokyo', 'Lisbon', 'Kyoto', 'Brooklyn', 'Paris', 'Amsterdam', 'Toronto', 'Barcelona'];
   const positions = [
@@ -415,6 +422,30 @@ function WelcomeScreen({ dark, accent, onComplete, onSkip }) {
     { top: '10%', left: '38%', rotate: '-8deg' },
     { top: '34%', left: '60%', rotate: '5deg' },
   ];
+
+  const saveName = async () => {
+    if (!firstName.trim() || saving) return;
+    setSaving(true);
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const fullName = [fn, ln].filter(Boolean).join(' ');
+    try {
+      if (user?.id && window.sb) {
+        await Promise.all([
+          window.sb.from('profiles').update({
+            first_name: fn,
+            last_name: ln || null,
+            display_name: fullName,
+          }).eq('id', user.id),
+          window.sb.auth.updateUser({ data: { full_name: fullName } }),
+        ]);
+      }
+    } catch (e) {
+      console.error('saveName error', e);
+    }
+    setSaving(false);
+    setStep(1);
+  };
 
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 500, background: bg,
@@ -439,30 +470,99 @@ function WelcomeScreen({ dark, accent, onComplete, onSkip }) {
         })}
       </div>
 
-      <div style={{ flex: 1 }}/>
-      <div style={{ padding: '0 28px 56px', display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontFamily: SERIF, fontSize: 16, fontStyle: 'italic', color: accent, marginBottom: 24, display: 'block' }}>minko</span>
-        <h1 style={{ fontFamily: SERIF, fontSize: 46, fontWeight: 500, lineHeight: 1.05, color: textPrimary, letterSpacing: -1.2, margin: '0 0 16px' }}>
-          Your travel<br/>journal.
-        </h1>
-        <p style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 1.6, color: textMuted, margin: '0 0 38px' }}>
-          Log the places you go. Rate them honestly. Build a map that's actually yours.
-        </p>
-        <button onClick={onComplete} style={{
-          height: 54, borderRadius: 16, border: 'none', cursor: 'pointer',
-          background: accent, color: 'white',
-          fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
-          boxShadow: `0 4px 18px ${accent}44`, marginBottom: 16,
-        }}>
-          Log your first place →
-        </button>
-        <button onClick={onSkip} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontFamily: SANS, fontSize: 14, color: textMuted, padding: '8px 0', textAlign: 'center',
-        }}>
-          Skip for now
-        </button>
-      </div>
+      {/* Step 0 — Name collection (email sign-ups only) */}
+      {step === 0 && (
+        <>
+          <div style={{ flex: 1 }}/>
+          <div style={{ padding: '0 28px 56px', display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontFamily: SERIF, fontSize: 16, fontStyle: 'italic', color: accent, marginBottom: 24, display: 'block' }}>minko</span>
+            <h1 style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 500, lineHeight: 1.08, color: textPrimary, letterSpacing: -1, margin: '0 0 10px' }}>
+              What's your<br/>name?
+            </h1>
+            <p style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 1.55, color: textMuted, margin: '0 0 28px' }}>
+              Your friends will see this when you share reviews.
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <input
+                placeholder="First name"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveName()}
+                autoFocus
+                style={{
+                  flex: 1, height: 52, padding: '0 16px', borderRadius: 14,
+                  border: inputBorder, background: inputBg, outline: 'none',
+                  fontFamily: SANS, fontSize: 16, fontWeight: 500,
+                  color: textPrimary,
+                }}
+              />
+              <input
+                placeholder="Last name"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveName()}
+                style={{
+                  flex: 1, height: 52, padding: '0 16px', borderRadius: 14,
+                  border: inputBorder, background: inputBg, outline: 'none',
+                  fontFamily: SANS, fontSize: 16, fontWeight: 500,
+                  color: textPrimary,
+                }}
+              />
+            </div>
+            <button
+              onClick={saveName}
+              disabled={!firstName.trim() || saving}
+              style={{
+                height: 54, borderRadius: 16, border: 'none', cursor: firstName.trim() ? 'pointer' : 'default',
+                background: firstName.trim() ? accent : (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)'),
+                color: firstName.trim() ? 'white' : textMuted,
+                fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
+                boxShadow: firstName.trim() ? `0 4px 18px ${accent}44` : 'none',
+                transition: 'all 0.2s',
+                marginBottom: 16,
+              }}
+            >
+              {saving ? 'Saving…' : 'Continue →'}
+            </button>
+            <button onClick={() => setStep(1)} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: SANS, fontSize: 14, color: textMuted, padding: '8px 0', textAlign: 'center',
+            }}>
+              Skip for now
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Step 1 — Welcome content */}
+      {step === 1 && (
+        <>
+          <div style={{ flex: 1 }}/>
+          <div style={{ padding: '0 28px 56px', display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontFamily: SERIF, fontSize: 16, fontStyle: 'italic', color: accent, marginBottom: 24, display: 'block' }}>minko</span>
+            <h1 style={{ fontFamily: SERIF, fontSize: 46, fontWeight: 500, lineHeight: 1.05, color: textPrimary, letterSpacing: -1.2, margin: '0 0 16px' }}>
+              Your travel<br/>journal.
+            </h1>
+            <p style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 1.6, color: textMuted, margin: '0 0 38px' }}>
+              Log the places you go. Rate them honestly. Build a map that's actually yours.
+            </p>
+            <button onClick={onComplete} style={{
+              height: 54, borderRadius: 16, border: 'none', cursor: 'pointer',
+              background: accent, color: 'white',
+              fontFamily: SANS, fontSize: 16, fontWeight: 600, letterSpacing: 0.2,
+              boxShadow: `0 4px 18px ${accent}44`, marginBottom: 16,
+            }}>
+              Log your first place →
+            </button>
+            <button onClick={onSkip} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: SANS, fontSize: 14, color: textMuted, padding: '8px 0', textAlign: 'center',
+            }}>
+              Skip for now
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

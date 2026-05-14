@@ -187,6 +187,8 @@ function AddPhotoSheet({ entry, tableKind, user, dark, accent, onClose, onSave }
 // EDIT ITEM FLOW (entries or wishlist)
 // ─────────────────────────────────────────────────────────────
 function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
+  const [place, setPlace] = useState2(entry?.place || '');
+  const [location, setLocation] = useState2(entry?.location || '');
   const [category, setCategory] = useState2(entry?.category || 'experience');
   const [rating, setRating] = useState2(entry?.rating || 0);
   const [note, setNote] = useState2(entry?.note || '');
@@ -212,8 +214,11 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
   };
 
   const handleSave = async () => {
+    if (!place.trim()) return;
     setSaving(true);
     const patch = {
+      place: place.trim(),
+      location: location.trim() || null,
       category,
       rating: rating || null,
       note: note || null,
@@ -239,12 +244,27 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
         </button>
       </div>
       <div style={{ padding: '0 20px' }}>
-        {/* Place name (read-only) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, marginBottom: 20,
-          background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)' }}>
-          <MinkoIcon name="pin" size={15} color={accent} strokeWidth={2}/>
-          <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{entry?.place}</span>
-        </div>
+        {/* Place name + location */}
+        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Place name</div>
+        <input
+          value={place}
+          onChange={e => setPlace(e.target.value)}
+          placeholder="Place name"
+          style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: 'none', outline: 'none',
+            background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+            fontFamily: SANS, fontSize: 15, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e',
+            marginBottom: 12 }}
+        />
+        <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 8 }}>Location <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>· optional</span></div>
+        <input
+          value={location}
+          onChange={e => setLocation(e.target.value)}
+          placeholder="City, country…"
+          style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 12, border: 'none', outline: 'none',
+            background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
+            fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
+            marginBottom: 20 }}
+        />
 
         {/* Category */}
         <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)', marginBottom: 10 }}>Category</div>
@@ -366,10 +386,11 @@ function EditItemFlow({ entry, tableKind, dark, accent, onClose, onConfirm }) {
           </button>
         )}
 
-        <button onClick={handleSave} disabled={saving} style={{
-          width: '100%', height: 50, borderRadius: 14, border: 0, cursor: saving ? 'default' : 'pointer',
-          background: saving ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
-          color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
+        <button onClick={handleSave} disabled={saving || !place.trim()} style={{
+          width: '100%', height: 50, borderRadius: 14, border: 0, cursor: (saving || !place.trim()) ? 'default' : 'pointer',
+          background: (saving || !place.trim()) ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
+          color: (saving || !place.trim()) ? (dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.3)') : 'white',
+          fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
         }}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>

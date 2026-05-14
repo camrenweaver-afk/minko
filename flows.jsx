@@ -520,8 +520,8 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: 0, flex: 1,
               color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{localItem.place}</h2>
             {(() => {
-              const mapsUrl = (localItem.lat && localItem.lon)
-                ? `https://www.google.com/maps/search/?api=1&query=${localItem.lat},${localItem.lon}`
+              const mapsUrl = localItem.google_place_id
+                ? `https://www.google.com/maps/place/?q=place_id:${localItem.google_place_id}`
                 : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([localItem.place, localItem.location].filter(Boolean).join(', '))}`;
               return (
                 <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{
@@ -899,7 +899,10 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         { query: q, fields: ['place_id'] },
         (results, status) => {
           if (status === 'OK' && results?.[0]?.place_id) {
-            fetchPhotos(results[0].place_id);
+            const resolvedId = results[0].place_id;
+            // Store the resolved place_id so it's available at save time
+            setPlace(prev => prev ? { ...prev, place_id: resolvedId } : prev);
+            fetchPhotos(resolvedId);
           } else {
             setPlace(prev => prev ? { ...prev, google_photos: [] } : prev);
           }
@@ -941,6 +944,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         lon: place.lon || null,
         lat: place.lat || null,
         photos: sourceEntry?.photos?.length ? sourceEntry.photos : (place.google_photos?.length ? place.google_photos : []),
+        google_place_id: place.place_id || null,
         friend_review_entry_id: sourceEntry?.id || null,
         friend_review_note: sourceEntry?.note || null,
         friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,

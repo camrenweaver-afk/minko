@@ -337,7 +337,7 @@ function MinkoGlobe({
     const map = mapRef.current;
     if (!map) return;
     addedImagesRef.current.clear(); // images are gone after style reload
-    map.setStyle(dark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11');
+    map.setStyle(dark ? 'mapbox://styles/mapbox/navigation-night-v1' : 'mapbox://styles/mapbox/streets-v12');
     map.once('styledata', () => {
       if (!scrollableRef.current) {
         map.touchZoomRotate.disableRotation();

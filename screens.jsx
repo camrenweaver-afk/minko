@@ -844,17 +844,47 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
     setGooglePhotos([]);
     if (!entry) return;
     const hasOwnMedia = (entry.photos?.length || 0) + (entry.videos?.length || 0) > 0;
-    if (hasOwnMedia || !entry.google_place_id || !window._gPlacesSvc) return;
-    window._gPlacesSvc.getDetails(
-      { placeId: entry.google_place_id, fields: ['photos'] },
-      (details, status) => {
-        const urls = (status === 'OK' && details.photos)
-          ? details.photos.slice(0, 8).map(p => p.getUrl({ maxWidth: 1200 }))
-          : [];
-        setGooglePhotos(urls);
+    if (hasOwnMedia || !entry.place) return;
+
+    const tryFetch = () => {
+      if (!window._gPlacesSvc) return; // Google Maps not loaded yet — bail silently
+
+      const fetchByPlaceId = (placeId) => {
+        window._gPlacesSvc.getDetails(
+          { placeId, fields: ['photos'] },
+          (details, status) => {
+            const urls = (status === 'OK' && details.photos)
+              ? details.photos.slice(0, 8).map(p => p.getUrl({ maxWidth: 1200 }))
+              : [];
+            setGooglePhotos(urls);
+          }
+        );
+      };
+
+      if (entry.google_place_id) {
+        fetchByPlaceId(entry.google_place_id);
+      } else {
+        // No stored place_id — resolve via text search then fetch photos
+        const q = [entry.place, entry.location].filter(Boolean).join(', ');
+        window._gPlacesSvc.findPlaceFromQuery(
+          { query: q, fields: ['place_id'] },
+          (results, status) => {
+            if (status === 'OK' && results?.[0]?.place_id) {
+              fetchByPlaceId(results[0].place_id);
+            }
+          }
+        );
       }
-    );
-  }, [entry?.id, entry?.google_place_id]); // eslint-disable-line
+    };
+
+    // Google Places loads async — retry once after a short delay if not ready yet
+    if (window._gPlacesSvc) {
+      tryFetch();
+    } else {
+      const timer = setTimeout(tryFetch, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [entry?.id]); // eslint-disable-line
 
   useEffect(() => {
     setLiked(false);

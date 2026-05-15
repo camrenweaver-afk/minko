@@ -3292,6 +3292,9 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   const [showSettings, setShowSettings] = useState2(false);
   const [showReviews, setShowReviews] = useState2(false);
   const [viewingReview, setViewingReview] = useState2(null);
+  const [editingReview, setEditingReview] = useState2(null);
+  const [deletingReview, setDeletingReview] = useState2(null);
+  const [localEntries, setLocalEntries] = useState2(entries);
   const [filterCategory, setFilterCategory] = useState2(null);
   const [filterRating, setFilterRating] = useState2(null);
   const [showFriendsList, setShowFriendsList] = useState2(false);
@@ -3300,6 +3303,9 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
   const [localAvatarUrl, setLocalAvatarUrl] = useState2(null);
   const [friendsList, setFriendsList] = useState2([]);
   const avatarFileRef = useRef2(null);
+
+  // Keep localEntries in sync when parent refreshes
+  useEffect2(() => { setLocalEntries(entries); }, [entries]); // eslint-disable-line
 
   // Load avatar from profiles table — survives OAuth re-login without being overwritten
   useEffect2(() => {
@@ -3533,7 +3539,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       {showReviews && (() => {
         const catColors = window.MINKO_CATEGORY_COLORS || {};
         const closeReviews = () => { setShowReviews(false); setFilterCategory(null); setFilterRating(null); };
-        const sorted = [...entries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        const sorted = [...localEntries].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         const filtered = sorted.filter(e =>
           (!filterCategory || e.category === filterCategory) &&
           (!filterRating || e.rating >= filterRating)
@@ -3549,7 +3555,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               </button>
               <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Reviews</span>
               <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>
-                {filtered.length !== entries.length ? `${filtered.length} of ${entries.length}` : `${entries.length} total`}
+                {filtered.length !== localEntries.length ? `${filtered.length} of ${localEntries.length}` : `${localEntries.length} total`}
               </span>
             </div>
 
@@ -3593,7 +3599,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
               {filtered.length === 0 ? (
                 <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>
-                  {entries.length === 0 ? 'No reviews yet' : 'No matches — try different filters'}
+                  {localEntries.length === 0 ? 'No reviews yet' : 'No matches — try different filters'}
                 </div>
               ) : filtered.map((e, i, arr) => (
                 <button key={e.id} onClick={() => setViewingReview(e)} style={{
@@ -3630,9 +3636,48 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               user={user}
               friendMode={false}
               onClose={() => setViewingReview(null)}
-              onEdit={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
-              onDelete={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
-              onPhotosChanged={() => { setViewingReview(null); setShowReviews(false); onPin(viewingReview.id); }}
+              onEdit={() => { setEditingReview(viewingReview); setViewingReview(null); }}
+              onDelete={() => { setDeletingReview(viewingReview); setViewingReview(null); }}
+              onPhotosChanged={(patch) => {
+                if (patch) setLocalEntries(prev => prev.map(e => e.id === viewingReview.id ? { ...e, ...patch } : e));
+                setViewingReview(null);
+              }}
+            />
+          </BottomSheet>
+        </div>
+      )}
+
+      {/* Edit entry — stays above reviews list */}
+      {editingReview && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 175 }}>
+          <BottomSheet open={true} onClose={() => setEditingReview(null)} dark={dark}>
+            <EditItemFlow
+              entry={editingReview}
+              tableKind="entries"
+              dark={dark} accent={accent} user={user}
+              onClose={() => setEditingReview(null)}
+              onConfirm={(patch) => {
+                setLocalEntries(prev => prev.map(e => e.id === editingReview.id ? { ...e, ...patch } : e));
+                setEditingReview(null);
+              }}
+            />
+          </BottomSheet>
+        </div>
+      )}
+
+      {/* Delete confirm — stays above reviews list */}
+      {deletingReview && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 175 }}>
+          <BottomSheet open={true} onClose={() => setDeletingReview(null)} dark={dark}>
+            <DeleteConfirmSheet
+              entry={deletingReview}
+              tableKind="entries"
+              dark={dark} accent={accent}
+              onClose={() => setDeletingReview(null)}
+              onConfirm={() => {
+                setLocalEntries(prev => prev.filter(e => e.id !== deletingReview.id));
+                setDeletingReview(null);
+              }}
             />
           </BottomSheet>
         </div>

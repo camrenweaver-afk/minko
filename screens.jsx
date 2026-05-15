@@ -970,41 +970,34 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
         <PhotoLightbox photos={photos} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)}/>
       )}
 
-      {/* Photo gallery */}
-      {photos.length === 1 && (
+      {/* Combined photo + video media strip */}
+      {(photos.length + videos.length) === 1 && photos.length === 1 && (
         <button onClick={() => openLightbox(0)} style={{ display: 'block', width: 'calc(100% - 40px)', height: 200, margin: '4px 20px 0', borderRadius: 16, overflow: 'hidden', border: 0, padding: 0, cursor: 'pointer',
           background: dark ? '#2a2c3a' : '#e8e4dc' }}>
           <img src={photos[0]} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
         </button>
       )}
-      {photos.length > 1 && (
-        /* Outer div scrolls; inner div is exactly content-wide so padding sticks on iOS Safari */
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none', margin: '4px 0 0 0', paddingBottom: 2 }}>
-          <div style={{ display: 'inline-flex', gap: 8,
-            paddingLeft: 20, paddingRight: 20,
-            scrollSnapType: 'x mandatory' }}>
+      {(photos.length + videos.length) === 1 && videos.length === 1 && (
+        <div style={{ width: 'calc(100% - 40px)', margin: '4px 20px 0', borderRadius: 16, overflow: 'hidden', background: '#000' }}>
+          <video src={videos[0]} controls playsInline preload="metadata"
+            style={{ width: '100%', height: 200, objectFit: 'contain', display: 'block' }}/>
+        </div>
+      )}
+      {(photos.length + videos.length) > 1 && (
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', margin: '4px 0 0 0', paddingBottom: 2 }}>
+          <div style={{ display: 'inline-flex', gap: 8, paddingLeft: 20, paddingRight: 20, scrollSnapType: 'x mandatory' }}>
             {photos.map((url, i) => (
-              <button key={i} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+              <button key={`p${i}`} onClick={() => openLightbox(i)} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
                 overflow: 'hidden', scrollSnapAlign: 'start', border: 0, padding: 0, cursor: 'pointer',
                 background: dark ? '#2a2c3a' : '#e8e4dc' }}>
                 <img src={url} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
               </button>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Video strip */}
-      {videos.length > 0 && (
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none', margin: `${photos.length ? 8 : 4}px 0 0 0`, paddingBottom: 2 }}>
-          <div style={{ display: 'inline-flex', gap: 8, paddingLeft: 20, paddingRight: 20, scrollSnapType: 'x mandatory' }}>
             {videos.map((url, i) => (
-              <div key={i} style={{ flexShrink: 0, width: videos.length === 1 ? 'calc(100vw - 40px)' : 280, borderRadius: 14,
-                overflow: 'hidden', scrollSnapAlign: 'start', background: dark ? '#1c1d28' : '#2a2c3a' }}>
+              <div key={`v${i}`} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+                overflow: 'hidden', scrollSnapAlign: 'start', background: '#000' }}>
                 <video src={url} controls playsInline preload="metadata"
-                  style={{ width: '100%', height: 190, objectFit: 'contain', display: 'block', background: '#000' }}/>
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}/>
               </div>
             ))}
           </div>

@@ -68,6 +68,75 @@ const HalfStarPicker = ({ rating = 0, onChange, size = 32, dark }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────
+// EntryThumb — thumbnail with Google Photos fallback
+// ─────────────────────────────────────────────────────────────
+if (!window._googlePhotoCache) window._googlePhotoCache = Object.create(null);
+
+const EntryThumb = ({ entry, size = 60, radius = 10, dark, accent }) => {
+  const catColor = (window.MINKO_CATEGORY_COLORS?.[entry?.category]) || accent || '#7a6ca3';
+  const ownPhoto = entry?.photos?.[0] || null;
+  const cacheKey = entry?.id;
+  const [googlePhoto, setGooglePhoto] = useState(() =>
+    (!ownPhoto && cacheKey && window._googlePhotoCache[cacheKey] !== undefined)
+      ? (window._googlePhotoCache[cacheKey] || null)
+      : null
+  );
+
+  useEffect(() => {
+    if (!entry || ownPhoto || !entry.place || !cacheKey) return;
+    if (window._googlePhotoCache[cacheKey] !== undefined) {
+      setGooglePhoto(window._googlePhotoCache[cacheKey] || null);
+      return;
+    }
+    const fetchByPlaceId = (placeId) => {
+      window._gPlacesSvc.getDetails(
+        { placeId, fields: ['photos'] },
+        (details, status) => {
+          const url = (status === 'OK' && details.photos?.[0])
+            ? details.photos[0].getUrl({ maxWidth: 400 })
+            : null;
+          window._googlePhotoCache[cacheKey] = url || '';
+          setGooglePhoto(url);
+        }
+      );
+    };
+    const tryFetch = () => {
+      if (!window._gPlacesSvc) return;
+      if (entry.google_place_id) {
+        fetchByPlaceId(entry.google_place_id);
+      } else {
+        const q = [entry.place, entry.location].filter(Boolean).join(', ');
+        window._gPlacesSvc.findPlaceFromQuery(
+          { query: q, fields: ['place_id'] },
+          (results, status) => {
+            if (status === 'OK' && results?.[0]?.place_id) {
+              fetchByPlaceId(results[0].place_id);
+            } else {
+              window._googlePhotoCache[cacheKey] = '';
+            }
+          }
+        );
+      }
+    };
+    if (window._gPlacesSvc) tryFetch();
+    else { const t = setTimeout(tryFetch, 1500); return () => clearTimeout(t); }
+  }, [entry?.id]); // eslint-disable-line
+
+  const src = ownPhoto || googlePhoto;
+  if (src) return (
+    <img src={src} alt="" decoding="async" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }}/>
+  );
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0,
+      background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <MinkoIcon name={entry?.category || 'pin'} size={Math.round(size * 0.38)} color={catColor} strokeWidth={1.4}/>
+    </div>
+  );
+};
+window.EntryThumb = EntryThumb;
+
 const CategoryChip = ({ category, color, dark }) => {
   const map = { restaurant: 'Restaurant', hotel: 'Hotel', attraction: 'Attraction', experience: 'Experience' };
   const c = color || (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[category]) || '#4f5bd5';
@@ -1342,14 +1411,7 @@ function PinPreview({ entry, dark, accent, onView, onClose, friend }) {
   return (
     <div style={{ padding: '4px 16px 24px' }}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '6px 4px 14px' }}>
-        {entry.photos?.[0] ? (
-          <img src={entry.photos[0]} alt="" style={{ width: 76, height: 76, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }}/>
-        ) : (
-          <div style={{ width: 76, height: 76, borderRadius: 12, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <MinkoIcon name={entry.category} size={28} color={catColor} strokeWidth={1.4}/>
-          </div>
-        )}
+        <EntryThumb entry={entry} size={76} radius={12} dark={dark} accent={accent}/>
         <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
           {friend && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>

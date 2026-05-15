@@ -2546,13 +2546,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
             <div key={e.id} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14,
               background: dark ? 'rgba(255,255,255,0.04)' : 'white',
               border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)' }}>
-              {e.photos?.[0] ? (
-                <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-              ) : (
-                <div style={{ width: 60, height: 60, borderRadius: 10, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MinkoIcon name={e.category} size={22} color={friend.color} strokeWidth={1.4}/>
-                </div>
-              )}
+              <EntryThumb entry={e} size={60} radius={10} dark={dark} accent={friend.color}/>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place}</div>
                 <div style={{ margin: '5px 0 3px' }}>
@@ -2744,15 +2738,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
               background: dark ? 'rgba(255,255,255,0.04)' : 'white',
               border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
               cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-              {e.photos?.[0] ? (
-                <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-              ) : (
-                <div style={{ width: 60, height: 60, borderRadius: 10, flexShrink: 0,
-                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MinkoIcon name={e.category} size={22} color={accent} strokeWidth={1.4}/>
-                </div>
-              )}
+              <EntryThumb entry={e} size={60} radius={10} dark={dark} accent={accent}/>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: labelC, letterSpacing: -0.2, lineHeight: 1.15,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place || 'Unnamed place'}</div>
@@ -2809,15 +2795,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
                   background: dark ? 'rgba(255,255,255,0.04)' : 'white',
                   border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
                   cursor: 'pointer', textAlign: 'left', marginBottom: 8 }}>
-                {e.photos?.[0] ? (
-                  <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-                ) : (
-                  <div style={{ width: 60, height: 60, borderRadius: 10, flexShrink: 0,
-                    background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MinkoIcon name={e.category} size={22} color={accent} strokeWidth={1.4}/>
-                  </div>
-                )}
+                <EntryThumb entry={e} size={60} radius={10} dark={dark} accent={accent}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, color: labelC,
                     letterSpacing: -0.2, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.place}</div>
@@ -3429,14 +3407,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
             border: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(20,30,60,0.05)',
             cursor: 'pointer', textAlign: 'left',
           }}>
-            {e.photos?.[0] ? (
-              <img src={e.photos[0]} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
-            ) : (
-              <div style={{ width: 60, height: 60, borderRadius: 10, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.06)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <MinkoIcon name={e.category} size={22} color={accent} strokeWidth={1.4}/>
-              </div>
-            )}
+            <EntryThumb entry={e} size={60} radius={10} dark={dark} accent={accent}/>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15,
@@ -3533,13 +3504,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
                   width: '100%', display: 'flex', gap: 12, padding: '12px 0', textAlign: 'left', border: 0, background: 'none', cursor: 'pointer',
                   borderBottom: i < arr.length - 1 ? `0.5px solid ${dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)'}` : 'none',
                 }}>
-                  {e.photos?.[0] ? (
-                    <img src={e.photos[0]} style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} alt=""/>
-                  ) : (
-                    <div style={{ width: 60, height: 60, borderRadius: 12, flexShrink: 0, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,20,30,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <MinkoIcon name={e.category || 'pin'} size={22} color={e.category ? catColors[e.category] : mutedC} strokeWidth={1.4}/>
-                    </div>
-                  )}
+                  <EntryThumb entry={e} size={60} radius={12} dark={dark} accent={accent}/>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: labelC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{e.place || 'Unnamed place'}</div>
@@ -4018,13 +3983,15 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
                       </div>
                     )}
                   </div>
-                  {hasPics && (
+                  {hasPics ? (
                     <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
                       <img src={e.photos[0]} alt="" style={{ width: 74, height: 74, borderRadius: 10, objectFit: 'cover', display: 'block' }}/>
                       {e.photos[1] && (
                         <img src={e.photos[1]} alt="" style={{ width: 74, height: 38, borderRadius: 8, objectFit: 'cover', display: 'block' }}/>
                       )}
                     </div>
+                  ) : (
+                    <EntryThumb entry={e} size={74} radius={10} dark={dark} accent={cc}/>
                   )}
                 </div>
               </div>

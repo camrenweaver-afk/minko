@@ -1715,7 +1715,6 @@ function LocationPickerScreen({ dark, accent, onConfirm, onCancel }) {
 function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = null, onBackToPicker, initialCategory = null, initialDraft = null, onSaveDraft = null, onDraftDeleted = null }) {
   // initialPlace is always provided (place was chosen in LocationPickerScreen at App level)
   // If initialDraft is provided, all fields are seeded from it (resume flow)
-  const [step, setStep] = useState2(initialDraft?.step ?? 2);
   const [place, setPlace] = useState2(initialDraft?.place ?? initialPlace);
   const [category, setCategory] = useState2(initialDraft?.category ?? (initialCategory || (initialPlace ? mapboxCategoryToMinko(initialPlace.poi_categories) : null)));
   const [rating, setRating] = useState2(initialDraft?.rating ?? 0);
@@ -1726,8 +1725,6 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
   const [pendingVideos, setPendingVideos] = useState2([]); // {file, preview} for videos
-  const [dateVisited, setDateVisited] = useState2(initialDraft?.dateVisited ?? '');
-  const [isPrivate, setIsPrivate] = useState2(initialDraft?.isPrivate ?? false);
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
   const videoInputRef = useRef2(null);
@@ -1738,7 +1735,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   const cancelledRef = useRef2(false);  // true when Back→location picker is tapped
   const onSaveDraftRef = useRef2(onSaveDraft);
   const initialDraftIdRef = useRef2(initialDraft?.id || null);
-  useEffect2(() => { stateRef.current = { place, category, step, rating, note, links, dateVisited, isPrivate }; });
+  useEffect2(() => { stateRef.current = { place, category, rating, note, links }; });
   useEffect2(() => { onSaveDraftRef.current = onSaveDraft; });
 
   // Save draft on ANY unmount (× button, backdrop tap, etc.) unless submitted or going back to picker
@@ -1747,13 +1744,12 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
       if (submittedRef.current || cancelledRef.current || !onSaveDraftRef.current) return;
       const s = stateRef.current;
       if (!s) return;
-      const hasMeaningfulInput = s.place && (s.category || s.step > 2 || s.rating > 0 || (s.note && s.note.trim()) || s.links.length > 0);
+      const hasMeaningfulInput = s.place && (s.category || s.rating > 0 || (s.note && s.note.trim()) || s.links.length > 0);
       if (!hasMeaningfulInput) return;
       onSaveDraftRef.current({
         id: initialDraftIdRef.current || ('draft-' + Date.now()),
-        place: s.place, category: s.category, step: s.step, rating: s.rating,
+        place: s.place, category: s.category, step: 2, rating: s.rating,
         note: s.note ? s.note.trim() : '', links: s.links,
-        dateVisited: s.dateVisited, isPrivate: s.isPrivate,
         saved_at: new Date().toISOString(),
       });
     };
@@ -1770,7 +1766,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             New memory
           </span>
           <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-            Step {step} of 3
+            Step 2 of 2
           </span>
         </div>
         <button onClick={handleClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
@@ -1781,96 +1777,56 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
         </button>
       </div>
 
-      {/* Progress dots */}
+      {/* Progress bar — 2 steps */}
       <div style={{ display: 'flex', gap: 5, padding: '2px 20px 16px' }}>
-        {[1,2,3].map(i => (
-          <div key={i} style={{
-            flex: 1, height: 3, borderRadius: 999,
-            background: i <= step ? accent : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(20,30,60,0.08)'),
-            transition: 'background 0.25s',
-          }}/>
+        {[1,2].map(i => (
+          <div key={i} style={{ flex: 1, height: 3, borderRadius: 999, background: accent, transition: 'background 0.25s' }}/>
         ))}
       </div>
 
-      {/* STEP 2 — Category */}
-      {step === 2 && (
-        <div style={{ padding: '0 20px' }}>
-          {place && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12,
-              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)', marginBottom: 18 }}>
-              <MinkoIcon name="pin" size={16} color={accent} strokeWidth={2}/>
-              <div style={{ flex: 1, fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>{place.name}</div>
+      {/* Single step — place + category + rating + media + note + links */}
+      <div style={{ padding: '0 20px' }}>
+        {/* Place name + category selector row */}
+        {place && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginBottom: 18 }}>
+            {/* Place name pill */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
+              padding: '10px 14px', borderRadius: 12,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)' }}>
+              <MinkoIcon name="pin" size={15} color={accent} strokeWidth={2}/>
+              <div style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontSize: 13.5, fontWeight: 600,
+                color: dark ? '#f5f1e8' : '#1a1a2e',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{place.name}</div>
             </div>
-          )}
-          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)', marginBottom: 12, letterSpacing: 0.3 }}>
-            What kind of place?
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {MINKO_CATEGORIES.map(c => {
-              const sel = category === c.id;
-              return (
-                <button key={c.id} onClick={() => setCategory(c.id)} style={{
-                  height: 96, borderRadius: 14, cursor: 'pointer',
-                  border: sel ? `1.5px solid ${accent}` : (dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)'),
-                  background: sel ? (dark ? 'rgba(79,91,213,0.15)' : `${accent}0e`) : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.5)'),
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'all 0.18s',
-                }}>
-                  <MinkoIcon name={c.id} size={26} color={sel ? accent : (dark ? '#f5f1e8' : '#1a1a2e')} strokeWidth={1.5}/>
-                  <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: sel ? 600 : 500, color: sel ? accent : (dark ? '#f5f1e8' : '#1a1a2e') }}>{c.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3 — Rating + Note + Photo */}
-      {step === 3 && (
-        <div style={{ padding: '0 20px' }}>
-          {place && (
-            <div style={{ marginBottom: 22 }}>
-              <CategoryChip category={category || 'restaurant'} color={accent} dark={dark}/>
-              <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.3, lineHeight: 1.1, marginTop: 4 }}>
-                {place.name}
-              </div>
-            </div>
-          )}
-
-          {/* Rating + Date — side by side */}
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
-            {/* Rating */}
-            <div style={{ flex: '0 0 auto' }}>
-              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
-                Rating
-              </div>
-              <HalfStarPicker rating={rating} onChange={setRating} size={28} dark={dark}/>
-            </div>
-            {/* Date visited */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
-                Date <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>· optional</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <input type="date" value={dateVisited} onChange={e => setDateVisited(e.target.value)}
-                  style={{
-                    flex: 1, minWidth: 0, height: 38, padding: '0 10px', borderRadius: 10, border: 'none', outline: 'none',
-                    background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)',
-                    fontFamily: SANS, fontSize: 13, color: dark ? '#f5f1e8' : '#1a1a2e',
-                    colorScheme: dark ? 'dark' : 'light',
-                  }}/>
-                {dateVisited && (
-                  <button onClick={() => setDateVisited('')} style={{
-                    width: 26, height: 26, borderRadius: '50%', border: 0, cursor: 'pointer', flexShrink: 0,
-                    background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.08)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)',
+            {/* Category 2×2 buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, flexShrink: 0 }}>
+              {MINKO_CATEGORIES.map(c => {
+                const sel = category === c.id;
+                const cc = (window.MINKO_CATEGORY_COLORS?.[c.id]) || accent;
+                return (
+                  <button key={c.id} onClick={() => setCategory(c.id)} style={{
+                    width: 52, borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: sel ? `${cc}20` : (dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)'),
+                    outline: sel ? `1.5px solid ${cc}` : `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)'}`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                    padding: '6px 4px', transition: 'all 0.15s',
                   }}>
-                    <MinkoIcon name="close" size={12} strokeWidth={2.5}/>
+                    <MinkoIcon name={c.id} size={14} color={sel ? cc : (dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)')} strokeWidth={1.8}/>
+                    <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: sel ? 700 : 500,
+                      color: sel ? cc : (dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)') }}>{c.label}</span>
                   </button>
-                )}
-              </div>
+                );
+              })}
             </div>
+          </div>
+        )}
+
+          {/* Rating */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 8 }}>
+              Rating
+            </div>
+            <HalfStarPicker rating={rating} onChange={setRating} size={28} dark={dark}/>
           </div>
 
           {/* Photos & Videos */}
@@ -1989,49 +1945,21 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             </div>
           </div>
 
-          {/* Privacy toggle */}
-          <button onClick={() => setIsPrivate(p => !p)} style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-            borderRadius: 14, border: `1px solid ${isPrivate ? accent + '55' : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)')}`,
-            background: isPrivate ? (dark ? `${accent}18` : `${accent}0c`) : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(20,30,60,0.02)'),
-            cursor: 'pointer', textAlign: 'left', marginBottom: 4, transition: 'all 0.18s',
-          }}>
-            <MinkoIcon name="lock" size={18} color={isPrivate ? accent : (dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)')} strokeWidth={1.8}/>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>Private entry</div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', marginTop: 1 }}>Only visible to you</div>
-            </div>
-            <div style={{
-              width: 44, height: 26, borderRadius: 999, flexShrink: 0,
-              background: isPrivate ? accent : (dark ? 'rgba(255,255,255,0.15)' : 'rgba(20,30,60,0.15)'),
-              position: 'relative', transition: 'background 0.2s',
-            }}>
-              <div style={{
-                position: 'absolute', top: 3, left: isPrivate ? 21 : 3,
-                width: 20, height: 20, borderRadius: '50%', background: 'white',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
-              }}/>
-            </div>
-          </button>
-        </div>
-      )}
+      </div>
 
       {/* Footer buttons */}
       <div style={{ display: 'flex', gap: 10, padding: '20px 20px 0' }}>
         <button onClick={() => {
-          if (step === 2) {
-            if (onBackToPicker) { cancelledRef.current = true; onBackToPicker(); }
-            else onClose();
-          } else { setStep(step - 1); }
+          if (onBackToPicker) { cancelledRef.current = true; onBackToPicker(); }
+          else onClose();
         }} style={{
           height: 50, padding: '0 18px', borderRadius: 12, cursor: 'pointer',
           background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)', border: 0,
           color: dark ? '#f5f1e8' : '#1a1a2e', fontFamily: SANS, fontSize: 14.5, fontWeight: 600,
         }}>Back</button>
         <button
-          disabled={(step === 2 && !category) || (step === 3 && (!rating || submitting))}
+          disabled={!rating || submitting}
           onClick={async () => {
-            if (step < 3) { setStep(step + 1); return; }
             if (!window.sb) { onConfirm(); return; }
             setSubmitting(true);
             try {
@@ -2048,10 +1976,9 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                 location: place.sub || null,
                 lon: place.lon || null,
                 lat: place.lat || null,
-                date_visited: dateVisited || null,
                 links: links.length ? links : [],
                 photos: [],
-                is_private: isPrivate,
+                is_private: false,
                 google_place_id: place.place_id || null,
               }).select('id').single();
 
@@ -2081,12 +2008,12 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             onConfirm();
           }}
           style={{
-            flex: 1, height: 50, borderRadius: 12, border: 0, cursor: 'pointer',
-            background: ((step === 2 && !category) || (step === 3 && (!rating || submitting)))
-              ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
-            color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
+            flex: 1, height: 50, borderRadius: 12, border: 0, cursor: (!rating || submitting) ? 'default' : 'pointer',
+            background: (!rating || submitting) ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
+            color: (!rating || submitting) ? (dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.3)') : 'white',
+            fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
           }}>
-          {step < 3 ? 'Continue' : submitting ? 'Saving…' : 'Drop pin'}
+          {submitting ? 'Saving…' : 'Save memory'}
         </button>
       </div>
     </div>

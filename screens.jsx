@@ -574,6 +574,7 @@ const FRIEND_PIN_COLORS = [
 ];
 
 function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], friendEntries = [], user, onLogReview, onSaveWishlist, onNotifications, onMapLongPress }) {
+  const cat = window.MINKO_CATEGORY_COLORS || {};
   const [searchPin, setSearchPin] = useState(null);
   const [filterCategory, setFilterCategory] = useState(null);
   const [filterRating, setFilterRating] = useState(null);

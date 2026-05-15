@@ -214,7 +214,7 @@ function MinkoGlobe({
 
     const map = new mapboxgl.Map({
       container:         containerRef.current,
-      style:             isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
+      style:             isDark ? 'mapbox://styles/mapbox/navigation-night-v1' : 'mapbox://styles/mapbox/streets-v12',
       center:            isMini ? [15, 30] : [15, 20],
       zoom:              isMini ? 1.5 : 1.1,
       projection:        'mercator',

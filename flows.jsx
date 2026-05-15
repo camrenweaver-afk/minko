@@ -925,6 +925,15 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
   const [results, setResults] = useState2([]);
   const [loading, setLoading] = useState2(false);
   const [saving, setSaving] = useState2(false);
+  const [collections, setCollections] = useState2([]);
+  const [collectionId, setCollectionId] = useState2(null);
+
+  // Fetch user's collections
+  useEffect2(() => {
+    if (!user || !window.sb) return;
+    window.sb.from('wishlist_collections').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }) => setCollections(data || []));
+  }, [user?.id]); // eslint-disable-line
 
   useEffect2(() => {
     if (!query.trim() || !window._gAutoSvc) { setResults([]); return; }
@@ -1019,6 +1028,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
         lat: place.lat || null,
         photos: sourceEntry?.photos?.length ? sourceEntry.photos : (place.google_photos?.length ? place.google_photos : []),
         google_place_id: place.place_id || null,
+        collection_id: collectionId || null,
         friend_review_entry_id: sourceEntry?.id || null,
         friend_review_note: sourceEntry?.note || null,
         friend_review_rating: sourceEntry?.rating != null ? Math.round(sourceEntry.rating) : null,
@@ -1190,6 +1200,41 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
               background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(20,30,60,0.04)',
               fontFamily: SERIF, fontSize: 17, lineHeight: 1.4, color: dark ? '#f5f1e8' : '#1a1a2e',
             }}/>
+
+          {/* Collection picker */}
+          {collections.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
+                color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 10 }}>Add to collection</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => setCollectionId(null)} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 34, padding: '0 14px', borderRadius: 99, border: 0, cursor: 'pointer',
+                  background: collectionId === null ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                  fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                  color: collectionId === null ? 'white' : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
+                  transition: 'all 0.15s',
+                }}>None</button>
+                {collections.map(c => {
+                  const active = collectionId === c.id;
+                  return (
+                    <button key={c.id} onClick={() => setCollectionId(active ? null : c.id)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      height: 34, padding: '0 14px', borderRadius: 99, cursor: 'pointer',
+                      border: active ? `1.5px solid ${c.color}` : `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.14)'}`,
+                      background: active ? `${c.color}22` : 'transparent',
+                      fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                      color: active ? c.color : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
+                      transition: 'all 0.15s',
+                    }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }}/>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

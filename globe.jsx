@@ -217,7 +217,7 @@ function MinkoGlobe({
       style:             isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
       center:            isMini ? [15, 30] : [15, 20],
       zoom:              isMini ? 1.5 : 1.1,
-      projection:        isMini ? 'mercator' : 'globe',
+      projection:        'mercator',
       scrollZoom:        !isMini,
       dragRotate:        false,
       touchZoomRotate:   true,

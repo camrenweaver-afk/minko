@@ -2110,10 +2110,13 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
       border: dark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(20,30,60,0.05)',
       cursor: 'pointer', textAlign: 'left',
     }}>
-      <div style={{ width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+      <div style={{ width: 60, height: 60, borderRadius: 12, flexShrink: 0, overflow: 'hidden',
         background: dark ? 'rgba(255,255,255,0.06)' : `${catColor(w.category)}18`,
         display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <MinkoIcon name={w.category} size={22} color={catColor(w.category)} strokeWidth={1.4}/>
+        {w.photos?.[0]
+          ? <img src={w.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+          : <MinkoIcon name={w.category} size={22} color={catColor(w.category)} strokeWidth={1.4}/>
+        }
       </div>
       <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
         <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.15,

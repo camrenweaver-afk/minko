@@ -2094,7 +2094,7 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
 
   // Pins filtered by active collection
   const pins = visibleItems.filter(w => w.lat && w.lon).map(w => ({
-    id: w.id, lon: w.lon, lat: w.lat, color: accent,
+    id: w.id, lon: w.lon, lat: w.lat, color: accent, name: w.place || '',
     photo: (w.photos && w.photos[0]) || null,
   }));
 
@@ -2517,7 +2517,7 @@ function FriendDetailOverlay({ open, friend, onBack, dark, accent }) {
         {/* Mini globe */}
         <div style={{ position: 'relative', height: 210, margin: '0 16px 8px', borderRadius: 18, overflow: 'hidden' }}>
           <MinkoGlobe dark={dark} accent={friend.color} scrollable={false}
-            pins={entries.map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: friend.color }))}
+            pins={entries.map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: friend.color, name: e.place || '' }))}
           />
         </div>
         {/* Category counts */}
@@ -2711,7 +2711,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
         {/* Mini globe */}
         <div style={{ position: 'relative', height: 220, margin: '8px 16px', borderRadius: 18, overflow: 'hidden' }}>
           <MinkoGlobe dark={dark} accent={accent} scrollable={false}
-            pins={pEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: (window.MINKO_CATEGORY_COLORS?.[e.category] || accent) }))}
+            pins={pEntries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: (window.MINKO_CATEGORY_COLORS?.[e.category] || accent), name: e.place || '' }))}
             onPinClick={(id) => setViewingEntry(pEntries.find(e => e.id === id) || null)}
           />
         </div>
@@ -3338,7 +3338,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
         <MinkoGlobe
           dark={dark} accent={accent}
           scrollable={false}
-          pins={entries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent }))}
+          pins={entries.filter(e => e.lon && e.lat).map(e => ({ id: e.id, lon: e.lon, lat: e.lat, color: accent, name: e.place || '' }))}
           onPinClick={(id) => { const e = entries.find(x => x.id === id); if (e) setViewingReview(e); }}
         />
       </div>

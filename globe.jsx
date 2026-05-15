@@ -125,7 +125,7 @@ function MinkoGlobe({
       return {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-        properties: { id: p.id, imgKey: isActive ? ka : kn, isActive: isActive ? 1 : 0 },
+        properties: { id: p.id, imgKey: isActive ? ka : kn, isActive: isActive ? 1 : 0, name: p.name || '' },
       };
     });
     return { type: 'FeatureCollection', features };
@@ -154,6 +154,30 @@ function MinkoGlobe({
           'icon-ignore-placement':   true,
           'icon-pitch-alignment':    'viewport',
           'icon-rotation-alignment': 'viewport',
+        },
+      });
+      // Label layer — appears when zoomed in past zoom 9
+      map.addLayer({
+        id:     'minko-pin-labels',
+        type:   'symbol',
+        source: 'minko-pins',
+        minzoom: 9,
+        layout: {
+          'text-field':             ['get', 'name'],
+          'text-font':              ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+          'text-size':              13,
+          'text-anchor':            'bottom',
+          'text-offset':            [0, -2.2],
+          'text-allow-overlap':     false,
+          'text-ignore-placement':  false,
+          'text-max-width':         10,
+        },
+        paint: {
+          'text-color':        '#1a1a2e',
+          'text-halo-color':   'rgba(255,255,255,0.92)',
+          'text-halo-width':   1.5,
+          'text-halo-blur':    0.5,
+          'text-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0, 10.5, 1],
         },
       });
       // Pointer cursor on hover (desktop)

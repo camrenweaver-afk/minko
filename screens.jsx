@@ -606,7 +606,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
   );
   const pins = [
     ...filtered.filter(e => e.lon && e.lat).map(e => ({
-      id: e.id, lon: e.lon, lat: e.lat,
+      id: e.id, lon: e.lon, lat: e.lat, name: e.place || '',
       color: e.user_id === myUserId ? accent : (friendColorMap[e.user_id] || accent),
     })),
     ...(searchPin ? [{ id: '__search__', lon: searchPin.lon, lat: searchPin.lat, color: accent }] : []),

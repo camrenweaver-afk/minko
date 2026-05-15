@@ -927,6 +927,10 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
   const [saving, setSaving] = useState2(false);
   const [collections, setCollections] = useState2([]);
   const [collectionId, setCollectionId] = useState2(null);
+  const [showNewColl, setShowNewColl] = useState2(false);
+  const [newCollName, setNewCollName] = useState2('');
+  const [newCollColor, setNewCollColor] = useState2(COLLECTION_PALETTE[0]);
+  const [savingColl, setSavingColl] = useState2(false);
 
   // Fetch user's collections
   useEffect2(() => {
@@ -934,6 +938,21 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
     window.sb.from('wishlist_collections').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
       .then(({ data }) => setCollections(data || []));
   }, [user?.id]); // eslint-disable-line
+
+  const handleCreateCollection = async () => {
+    if (!newCollName.trim() || savingColl || !user) return;
+    setSavingColl(true);
+    const { data, error } = await window.sb.from('wishlist_collections')
+      .insert({ user_id: user.id, name: newCollName.trim(), color: newCollColor })
+      .select().single();
+    setSavingColl(false);
+    if (error) { console.error('create collection error', error); return; }
+    setCollections(prev => [data, ...prev]);
+    setCollectionId(data.id);
+    setNewCollName('');
+    setNewCollColor(COLLECTION_PALETTE[0]);
+    setShowNewColl(false);
+  };
 
   useEffect2(() => {
     if (!query.trim() || !window._gAutoSvc) { setResults([]); return; }
@@ -1202,39 +1221,98 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
             }}/>
 
           {/* Collection picker */}
-          {collections.length > 0 && (
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
-                color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 10 }}>Add to collection</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => setCollectionId(null)} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 34, padding: '0 14px', borderRadius: 99, border: 0, cursor: 'pointer',
-                  background: collectionId === null ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
-                  fontFamily: SANS, fontSize: 13, fontWeight: 600,
-                  color: collectionId === null ? 'white' : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
-                  transition: 'all 0.15s',
-                }}>None</button>
-                {collections.map(c => {
-                  const active = collectionId === c.id;
-                  return (
-                    <button key={c.id} onClick={() => setCollectionId(active ? null : c.id)} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 34, padding: '0 14px', borderRadius: 99, cursor: 'pointer',
-                      border: active ? `1.5px solid ${c.color}` : `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.14)'}`,
-                      background: active ? `${c.color}22` : 'transparent',
-                      fontFamily: SANS, fontSize: 13, fontWeight: 600,
-                      color: active ? c.color : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
-                      transition: 'all 0.15s',
-                    }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }}/>
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
+              color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 10 }}>Add to collection</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setCollectionId(null)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 34, padding: '0 14px', borderRadius: 99, border: 0, cursor: 'pointer',
+                background: collectionId === null ? accent : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)'),
+                fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                color: collectionId === null ? 'white' : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
+                transition: 'all 0.15s',
+              }}>None</button>
+              {collections.map(c => {
+                const active = collectionId === c.id;
+                return (
+                  <button key={c.id} onClick={() => { setCollectionId(active ? null : c.id); setShowNewColl(false); }} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 34, padding: '0 14px', borderRadius: 99, cursor: 'pointer',
+                    border: active ? `1.5px solid ${c.color}` : `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.14)'}`,
+                    background: active ? `${c.color}22` : 'transparent',
+                    fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                    color: active ? c.color : (dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)'),
+                    transition: 'all 0.15s',
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }}/>
+                    {c.name}
+                  </button>
+                );
+              })}
+              {/* + New button */}
+              <button onClick={() => { setShowNewColl(v => !v); setCollectionId(null); }} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                height: 34, padding: '0 14px', borderRadius: 99, cursor: 'pointer',
+                border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.25)' : 'rgba(20,30,60,0.22)'}`,
+                background: showNewColl ? (dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)') : 'transparent',
+                fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)',
+              }}>
+                <MinkoIcon name="plus" size={13} strokeWidth={2.5} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)'}/>
+                New
+              </button>
             </div>
-          )}
+
+            {/* Inline new-collection form */}
+            {showNewColl && (
+              <div style={{ marginTop: 14, padding: '16px', borderRadius: 16,
+                background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.04)',
+                border: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(20,30,60,0.07)' }}>
+                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase',
+                  color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 8 }}>Collection name</div>
+                <input
+                  value={newCollName}
+                  onChange={e => setNewCollName(e.target.value)}
+                  placeholder="e.g. Tokyo, Paris Trip…"
+                  autoFocus
+                  style={{
+                    width: '100%', height: 44, borderRadius: 11, padding: '0 12px', boxSizing: 'border-box',
+                    fontFamily: SANS, fontSize: 15, color: dark ? '#f5f1e8' : '#1a1a2e',
+                    background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.8)',
+                    border: dark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(20,30,60,0.12)',
+                    outline: 'none', marginBottom: 14,
+                  }}
+                />
+                <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase',
+                  color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 10 }}>Color</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                  {COLLECTION_PALETTE.map(col => (
+                    <button key={col} onClick={() => setNewCollColor(col)} style={{
+                      width: 30, height: 30, borderRadius: '50%', border: newCollColor === col ? `3px solid ${dark ? '#f5f1e8' : '#1a1a2e'}` : '3px solid transparent',
+                      background: col, cursor: 'pointer', padding: 0,
+                      boxShadow: newCollColor === col ? `0 0 0 1.5px ${col}` : 'none',
+                      transition: 'border 0.15s',
+                    }}/>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { setShowNewColl(false); setNewCollName(''); }} style={{
+                    height: 42, padding: '0 16px', borderRadius: 11, border: 0, cursor: 'pointer',
+                    background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.07)',
+                    fontFamily: SANS, fontSize: 13.5, fontWeight: 600,
+                    color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)',
+                  }}>Cancel</button>
+                  <button onClick={handleCreateCollection} disabled={!newCollName.trim() || savingColl} style={{
+                    flex: 1, height: 42, borderRadius: 11, border: 0, cursor: newCollName.trim() ? 'pointer' : 'default',
+                    background: newCollName.trim() ? accent : (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)'),
+                    color: 'white', fontFamily: SANS, fontSize: 13.5, fontWeight: 600,
+                    opacity: savingColl ? 0.6 : 1,
+                  }}>{savingColl ? 'Creating…' : 'Create & select'}</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

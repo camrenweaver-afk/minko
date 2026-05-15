@@ -908,6 +908,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
     setCommentSubmitting(false);
   };
   const photos = entry.photos?.length ? entry.photos : [];
+  const videos = entry.videos?.length ? entry.videos : [];
   const openLightbox = (i) => setLightboxIndex(i);
 
   const textC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -993,6 +994,23 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           </div>
         </div>
       )}
+
+      {/* Video strip */}
+      {videos.length > 0 && (
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none', margin: `${photos.length ? 8 : 4}px 0 0 0`, paddingBottom: 2 }}>
+          <div style={{ display: 'inline-flex', gap: 8, paddingLeft: 20, paddingRight: 20, scrollSnapType: 'x mandatory' }}>
+            {videos.map((url, i) => (
+              <div key={i} style={{ flexShrink: 0, width: videos.length === 1 ? 'calc(100vw - 40px)' : 280, borderRadius: 14,
+                overflow: 'hidden', scrollSnapAlign: 'start', background: dark ? '#1c1d28' : '#2a2c3a' }}>
+                <video src={url} controls playsInline preload="metadata"
+                  style={{ width: '100%', height: 190, objectFit: 'contain', display: 'block', background: '#000' }}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: '18px 20px 0' }}>
         {friendMode && friend && (
           <button onClick={onFriendProfile} style={{

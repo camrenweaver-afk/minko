@@ -56,8 +56,8 @@ window.initGooglePlaces = function() {
 <script type="text/babel" src="data.jsx?v=6"></script>
 <script type="text/babel" src="icons.jsx?v=7"></script>
 <script type="text/babel" src="globe.jsx?v=21"></script>
-<script type="text/babel" src="screens.jsx?v=44"></script>
-<script type="text/babel" src="flows.jsx?v=95"></script>
+<script type="text/babel" src="screens.jsx?v=45"></script>
+<script type="text/babel" src="flows.jsx?v=96"></script>
 <script type="text/babel" src="supabase-client.jsx?v=2"></script>
 <script type="text/babel" src="onboarding.jsx?v=11"></script>
 
@@ -488,10 +488,11 @@ function App() {
             />
           </BottomSheet>
 
-          {/* Add / manage photos */}
+          {/* Add / manage photos & videos */}
           <BottomSheet open={showAddPhoto} onClose={() => setShowAddPhoto(false)} dark={dark}>
-            <AddPhotoSheet key={photoKey}
+            <AddMediaSheet key={photoKey}
               entry={activeEntry} tableKind="entries" user={user} dark={dark} accent={accent}
+              videosEnabled={true}
               onClose={() => setShowAddPhoto(false)}
               onSave={() => { setShowAddPhoto(false); refreshEntries(); }}
             />

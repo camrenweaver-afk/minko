@@ -69,6 +69,15 @@ async function uploadPhoto(userId, tableKind, entryId, file) {
   return publicUrl;
 }
 
+async function uploadVideo(userId, entryId, file) {
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const path = `${userId}/entries/${entryId}/videos/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await window.sb.storage.from('entry-photos').upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw error;
+  const { data: { publicUrl } } = window.sb.storage.from('entry-photos').getPublicUrl(path);
+  return publicUrl;
+}
+
 function lonLatToCoords(lon, lat) {
   return { x: ((lon + 180) / 360) * 100, y: ((90 - lat) / 180) * 100 };
 }
@@ -98,39 +107,82 @@ async function reverseGeocode(lon, lat) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ADD PHOTO SHEET
+// ADD MEDIA SHEET (photos + videos)
 // ─────────────────────────────────────────────────────────────
-function AddPhotoSheet({ entry, tableKind, user, dark, accent, onClose, onSave }) {
+function AddMediaSheet({ entry, tableKind, user, dark, accent, onClose, onSave, videosEnabled = false }) {
   const [photos, setPhotos] = useState2(Array.isArray(entry?.photos) ? [...entry.photos] : []);
+  const [videos, setVideos] = useState2(Array.isArray(entry?.videos) ? [...entry.videos] : []);
   const [uploading, setUploading] = useState2(false);
   const [saving, setSaving] = useState2(false);
-  const fileRef = useRef2(null);
+  const photoRef = useRef2(null);
+  const videoRef = useRef2(null);
 
-  const handleFiles = async (e) => {
+  const handlePhotoFiles = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
     try {
       const urls = await Promise.all(files.map(f => uploadPhoto(user.id, tableKind, entry.id, f)));
       setPhotos(prev => [...prev, ...urls]);
-    } catch(err) { console.error('Upload error', err); }
+    } catch(err) { console.error('Photo upload error', err); }
     setUploading(false);
     e.target.value = '';
   };
 
-  const removePhoto = (i) => setPhotos(prev => prev.filter((_, j) => j !== i));
+  const handleVideoFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.map(f => uploadVideo(user.id, entry.id, f)));
+      setVideos(prev => [...prev, ...urls]);
+    } catch(err) { console.error('Video upload error', err); }
+    setUploading(false);
+    e.target.value = '';
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    await window.sb.from(tableKind).update({ photos }).eq('id', entry.id);
+    const patch = { photos };
+    if (videosEnabled) patch.videos = videos;
+    await window.sb.from(tableKind).update(patch).eq('id', entry.id);
     setSaving(false);
-    onSave(photos);
+    onSave({ photos, videos });
   };
+
+  const gridItem = (label, onRemove, children) => (
+    <div style={{ position: 'relative', paddingBottom: '100%', borderRadius: 12, overflow: 'hidden', background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+      <div style={{ position: 'absolute', inset: 0 }}>{children}</div>
+      <button onClick={onRemove} style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24,
+        borderRadius: '50%', border: 0, cursor: 'pointer', background: 'rgba(0,0,0,0.6)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+        <MinkoIcon name="close" size={12} strokeWidth={2.2} color="white"/>
+      </button>
+    </div>
+  );
+
+  const addBtn = (onClick, label, icon) => (
+    <button onClick={onClick} disabled={uploading} style={{
+      paddingBottom: '100%', borderRadius: 12, position: 'relative', cursor: uploading ? 'default' : 'pointer',
+      border: dark ? '1.5px dashed rgba(255,255,255,0.2)' : '1.5px dashed rgba(20,30,60,0.2)',
+      background: 'transparent',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+        {uploading
+          ? <span style={{ fontFamily: SANS, fontSize: 10, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>…</span>
+          : <>
+              <MinkoIcon name={icon} size={20} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)'} strokeWidth={2}/>
+              <span style={{ fontFamily: SANS, fontSize: 10, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>{label}</span>
+            </>
+        }
+      </div>
+    </button>
+  );
 
   return (
     <div style={{ padding: '4px 0 32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 16px' }}>
-        <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>Photos</span>
+        <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>Photos & Videos</span>
         <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
           background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
@@ -138,37 +190,34 @@ function AddPhotoSheet({ entry, tableKind, user, dark, accent, onClose, onSave }
         </button>
       </div>
       <div style={{ padding: '0 20px' }}>
-        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFiles}/>
+        <input ref={photoRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePhotoFiles}/>
+        {videosEnabled && <input ref={videoRef} type="file" accept="video/*" multiple style={{ display: 'none' }} onChange={handleVideoFiles}/>}
+
+        {/* Photos section */}
+        <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
+          color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 8 }}>Photos</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
-          {photos.map((url, i) => (
-            <div key={i} style={{ position: 'relative', paddingBottom: '100%', borderRadius: 12, overflow: 'hidden' }}>
-              <img src={url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}/>
-              <button onClick={() => removePhoto(i)} style={{ position: 'absolute', top: 4, right: 4, width: 24, height: 24,
-                borderRadius: '50%', border: 0, cursor: 'pointer', background: 'rgba(0,0,0,0.6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MinkoIcon name="close" size={12} strokeWidth={2.2} color="white"/>
-              </button>
-            </div>
+          {photos.map((url, i) => gridItem('photo', () => setPhotos(prev => prev.filter((_, j) => j !== i)),
+            <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
           ))}
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{
-            paddingBottom: '100%', borderRadius: 12, position: 'relative', cursor: uploading ? 'default' : 'pointer',
-            border: dark ? '1.5px dashed rgba(255,255,255,0.2)' : '1.5px dashed rgba(20,30,60,0.2)',
-            background: 'transparent',
-          }}>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              {uploading
-                ? <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>Uploading…</span>
-                : <>
-                    <MinkoIcon name="plus" size={20} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)'} strokeWidth={2}/>
-                    <span style={{ fontFamily: SANS, fontSize: 11, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Add</span>
-                  </>
-              }
-            </div>
-          </button>
+          {addBtn(() => photoRef.current?.click(), 'Photo', 'camera')}
         </div>
-        {photos.length === 0 && !uploading && (
+
+        {/* Videos section */}
+        {videosEnabled && (<>
+          <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
+            color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 8 }}>Videos</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+            {videos.map((url, i) => gridItem('video', () => setVideos(prev => prev.filter((_, j) => j !== i)),
+              <video src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline preload="metadata"/>
+            ))}
+            {addBtn(() => videoRef.current?.click(), 'Video', 'play')}
+          </div>
+        </>)}
+
+        {photos.length === 0 && videos.length === 0 && !uploading && (
           <div style={{ textAlign: 'center', padding: '4px 0 16px', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>
-            No photos yet — tap + to add one
+            No media yet — tap to add
           </div>
         )}
         <button onClick={handleSave} disabled={saving || uploading} style={{
@@ -176,12 +225,15 @@ function AddPhotoSheet({ entry, tableKind, user, dark, accent, onClose, onSave }
           background: (saving || uploading) ? (dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.1)') : accent,
           color: 'white', fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
         }}>
-          {saving ? 'Saving…' : uploading ? 'Uploading…' : 'Save photos'}
+          {saving ? 'Saving…' : uploading ? 'Uploading…' : 'Save'}
         </button>
       </div>
     </div>
   );
 }
+
+// Backward-compat alias used by wishlist (photos only)
+function AddPhotoSheet(props) { return AddMediaSheet({ ...props, videosEnabled: false }); }
 
 // ─────────────────────────────────────────────────────────────
 // EDIT ITEM FLOW (entries or wishlist)
@@ -1453,10 +1505,12 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
   // pendingFiles holds {file, preview} objects — photos are NOT uploaded until submit
   // so we always have a real entry ID to use as the storage path
   const [pendingFiles, setPendingFiles] = useState2([]);
+  const [pendingVideos, setPendingVideos] = useState2([]); // {file, preview} for videos
   const [dateVisited, setDateVisited] = useState2(initialDraft?.dateVisited ?? '');
   const [isPrivate, setIsPrivate] = useState2(initialDraft?.isPrivate ?? false);
   const [submitting, setSubmitting] = useState2(false);
   const photoInputRef = useRef2(null);
+  const videoInputRef = useRef2(null);
 
   // Refs so the unmount cleanup can always read the latest state / callbacks
   const stateRef = useRef2(null);
@@ -1599,10 +1653,11 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
             </div>
           </div>
 
-          {/* Photos */}
+          {/* Photos & Videos */}
           <div style={{ marginBottom: 18 }}>
-            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 10 }}>Photos</div>
+            <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)', marginBottom: 10 }}>Photos & Videos</div>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              {/* Photo thumbnails */}
               {pendingFiles.map(({ preview }, i) => (
                 <div key={preview} style={{ position: 'relative', flexShrink: 0 }}>
                   <img src={preview} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', display: 'block' }} alt=""/>
@@ -1613,18 +1668,51 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                   </button>
                 </div>
               ))}
+              {/* Video thumbnails */}
+              {pendingVideos.map(({ preview }, i) => (
+                <div key={preview} style={{ position: 'relative', flexShrink: 0 }}>
+                  <video src={preview} style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', display: 'block' }} muted playsInline preload="metadata"/>
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <MinkoIcon name="play" size={11} color="white" strokeWidth={2}/>
+                    </div>
+                  </div>
+                  <button onClick={() => setPendingVideos(prev => prev.filter((_, j) => j !== i))}
+                    style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', border: 0, cursor: 'pointer',
+                      background: 'rgba(0,0,0,0.55)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                    <MinkoIcon name="close" size={11} strokeWidth={2.5} color="white"/>
+                  </button>
+                </div>
+              ))}
+              {/* Add photo button */}
               <button onClick={() => photoInputRef.current?.click()}
                 disabled={submitting}
                 style={{ width: 72, height: 72, borderRadius: 12, border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.18)'}`,
                   background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)', cursor: submitting ? 'default' : 'pointer',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
-                <MinkoIcon name="camera" size={22} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>
+                <MinkoIcon name="camera" size={20} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>
+                <span style={{ fontFamily: SANS, fontSize: 9, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.3)' }}>Photo</span>
+              </button>
+              {/* Add video button */}
+              <button onClick={() => videoInputRef.current?.click()}
+                disabled={submitting}
+                style={{ width: 72, height: 72, borderRadius: 12, border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.2)' : 'rgba(20,20,30,0.18)'}`,
+                  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(20,30,60,0.03)', cursor: submitting ? 'default' : 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
+                <MinkoIcon name="play" size={20} color={dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.35)'} strokeWidth={1.6}/>
+                <span style={{ fontFamily: SANS, fontSize: 9, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.3)' }}>Video</span>
               </button>
               <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
                 onChange={e => {
                   const snap = Array.from(e.target.files || []);
                   e.target.value = '';
                   setPendingFiles(prev => [...prev, ...snap.map(f => ({ file: f, preview: URL.createObjectURL(f) }))]);
+                }}/>
+              <input ref={videoInputRef} type="file" accept="video/*" multiple style={{ display: 'none' }}
+                onChange={e => {
+                  const snap = Array.from(e.target.files || []);
+                  e.target.value = '';
+                  setPendingVideos(prev => [...prev, ...snap.map(f => ({ file: f, preview: URL.createObjectURL(f) }))]);
                 }}/>
             </div>
           </div>
@@ -1748,12 +1836,20 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
 
               if (insertErr) { console.error('insert error', insertErr); onConfirm(); return; }
 
-              // 2. Upload photos using the real entry ID, then patch the row
+              // 2. Upload photos + videos using the real entry ID, then patch the row
+              const patch = {};
               if (pendingFiles.length > 0) {
-                const urls = await Promise.all(
+                patch.photos = await Promise.all(
                   pendingFiles.map(({ file }) => uploadPhoto(user.id, 'entries', inserted.id, file))
                 );
-                await window.sb.from('entries').update({ photos: urls }).eq('id', inserted.id);
+              }
+              if (pendingVideos.length > 0) {
+                patch.videos = await Promise.all(
+                  pendingVideos.map(({ file }) => uploadVideo(user.id, inserted.id, file))
+                );
+              }
+              if (Object.keys(patch).length > 0) {
+                await window.sb.from('entries').update(patch).eq('id', inserted.id);
               }
             } catch (err) {
               console.error('submit error', err);
@@ -4146,6 +4242,7 @@ window.LogEntryFlow = LogEntryFlow;
 window.ProfileScreen = ProfileScreen;
 window.FriendsScreen = FriendsScreen;
 window.AddPhotoSheet = AddPhotoSheet;
+window.AddMediaSheet = AddMediaSheet;
 window.EditItemFlow = EditItemFlow;
 window.DeleteConfirmSheet = DeleteConfirmSheet;
 window.WishlistItemSheet = WishlistItemSheet;

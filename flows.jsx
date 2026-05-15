@@ -2092,7 +2092,8 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
     ? items.filter(w => w.collection_id === activeCollection.id)
     : items;
 
-  const pins = items.filter(w => w.lat && w.lon).map(w => ({
+  // Pins filtered by active collection
+  const pins = visibleItems.filter(w => w.lat && w.lon).map(w => ({
     id: w.id, lon: w.lon, lat: w.lat, color: accent,
     photo: (w.photos && w.photos[0]) || null,
   }));
@@ -2158,48 +2159,17 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-        {/* Map / List tab toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 6px', flexShrink: 0 }}>
-          <div style={{ display: 'inline-flex', borderRadius: 99, padding: 3,
-            background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.07)' }}>
-            {['list','map'].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding: '6px 22px', borderRadius: 99, border: 0, cursor: 'pointer',
-                fontFamily: SANS, fontSize: 13.5, fontWeight: 600, letterSpacing: 0.1,
-                background: tab === t ? (dark ? 'rgba(255,255,255,0.12)' : 'white') : 'transparent',
-                color: tab === t ? (dark ? '#f5f1e8' : '#1a1a2e') : (dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)'),
-                boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                transition: 'all 0.18s',
-                textTransform: 'capitalize',
-              }}>{t}</button>
-            ))}
-          </div>
+        {/* Map — always visible, fixed height */}
+        <div style={{ height: 220, flexShrink: 0, position: 'relative' }}>
+          <MinkoGlobe
+            pins={pins} dark={dark} accent={accent}
+            scrollable={true} fitToPins={pins.length > 0}
+            onPinClick={(id) => setActiveItem(visibleItems.find(w => w.id === id))}
+          />
         </div>
 
-        {/* MAP TAB */}
-        {tab === 'map' && (
-          <div style={{ flex: 1, position: 'relative' }}>
-            {pins.length > 0 ? (
-              <div style={{ position: 'absolute', inset: 0 }}>
-                <MinkoGlobe
-                  pins={pins} dark={dark} accent={accent}
-                  scrollable={true} fitToPins={true}
-                  onPinClick={(id) => setActiveItem(items.find(w => w.id === id))}
-                />
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                height: '100%', gap: 10, padding: '0 40px', textAlign: 'center' }}>
-                <MinkoIcon name="globe" size={36} color={dark ? 'rgba(255,255,255,0.25)' : 'rgba(20,20,30,0.2)'} strokeWidth={1.3}/>
-                <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2 }}>No locations yet</div>
-                <div style={{ fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)', lineHeight: 1.5 }}>Places with a pin on the map will appear here</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* LIST TAB */}
-        {tab === 'list' && (
+        {/* Unified list + collection filter */}
+        {true && (
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
             {/* Collection filter tabs — horizontal scroll */}

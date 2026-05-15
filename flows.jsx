@@ -1956,6 +1956,7 @@ function LogEntryFlow({ dark, accent, user, onClose, onConfirm, initialPlace = n
                 links: links.length ? links : [],
                 photos: [],
                 is_private: isPrivate,
+                google_place_id: place.place_id || null,
               }).select('id').single();
 
               if (insertErr) { console.error('insert error', insertErr); onConfirm(); return; }

@@ -838,6 +838,23 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null); // null = closed
+  const [googlePhotos, setGooglePhotos] = useState([]);
+
+  useEffect(() => {
+    setGooglePhotos([]);
+    if (!entry) return;
+    const hasOwnMedia = (entry.photos?.length || 0) + (entry.videos?.length || 0) > 0;
+    if (hasOwnMedia || !entry.google_place_id || !window._gPlacesSvc) return;
+    window._gPlacesSvc.getDetails(
+      { placeId: entry.google_place_id, fields: ['photos'] },
+      (details, status) => {
+        const urls = (status === 'OK' && details.photos)
+          ? details.photos.slice(0, 8).map(p => p.getUrl({ maxWidth: 1200 }))
+          : [];
+        setGooglePhotos(urls);
+      }
+    );
+  }, [entry?.id, entry?.google_place_id]); // eslint-disable-line
 
   useEffect(() => {
     setLiked(false);
@@ -1001,6 +1018,42 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Google Photos fallback — shown only when reviewer has no own media */}
+      {(photos.length + videos.length) === 0 && googlePhotos.length > 0 && (
+        <div style={{ margin: '4px 0 0 0' }}>
+          {/* Attribution header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 20px 8px',
+            fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.4,
+            color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', textTransform: 'uppercase' }}>
+            <MinkoIcon name="globe" size={12} color={dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)'} strokeWidth={2}/>
+            Photos via Google
+          </div>
+          {googlePhotos.length === 1 ? (
+            <div style={{ position: 'relative', width: 'calc(100% - 40px)', height: 200, margin: '0 20px', borderRadius: 16, overflow: 'hidden',
+              background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+              <img src={googlePhotos[0]} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+              <div style={{ position: 'absolute', bottom: 8, right: 10, padding: '3px 7px', borderRadius: 8,
+                background: 'rgba(0,0,0,0.45)', fontFamily: SANS, fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+                letterSpacing: 0.3 }}>via Google</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', paddingBottom: 2 }}>
+              <div style={{ display: 'inline-flex', gap: 8, paddingLeft: 20, paddingRight: 20, scrollSnapType: 'x mandatory' }}>
+                {googlePhotos.map((url, i) => (
+                  <div key={i} style={{ flexShrink: 0, position: 'relative', width: 200, height: 175, borderRadius: 14,
+                    overflow: 'hidden', scrollSnapAlign: 'start', background: dark ? '#2a2c3a' : '#e8e4dc' }}>
+                    <img src={url} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                    <div style={{ position: 'absolute', bottom: 6, right: 8, padding: '2px 6px', borderRadius: 6,
+                      background: 'rgba(0,0,0,0.45)', fontFamily: SANS, fontSize: 10, fontWeight: 600,
+                      color: 'rgba(255,255,255,0.85)', letterSpacing: 0.2 }}>via Google</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

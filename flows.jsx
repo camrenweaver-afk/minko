@@ -2603,6 +2603,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const [friendsListLoading, setFriendsListLoading] = useState2(false);
   const [viewingSubFriend, setViewingSubFriend] = useState2(null);
   const [wishlistSaveEntry, setWishlistSaveEntry] = useState2(null);
+  const [pTopCategory, setPTopCategory] = useState2(null);
   const pageRef = useSwipeBack(onBack);
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
@@ -2677,7 +2678,9 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
   const pAvgRating = pEntries.length > 0
     ? (pEntries.reduce((s, e) => s + (e.rating || 0), 0) / pEntries.length).toFixed(1)
     : '—';
-  const pTopRated = [...pEntries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const pTopRated = [...pEntries]
+    .filter(e => !pTopCategory || e.category === pTopCategory)
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
   return (
     <div ref={pageRef} style={{ position: 'absolute', inset: 0, zIndex, background: dark ? '#13141b' : '#faf8f3', display: 'flex', flexDirection: 'column', transform: 'translateX(0)', animation: 'minko-slide-in-right 0.28s cubic-bezier(0.32,0.72,0,1)' }}>
@@ -2747,9 +2750,32 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
         </div>
 
         {/* Top rated */}
-        <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ padding: '24px 20px 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: labelC, fontStyle: 'italic' }}>Top rated</div>
-          <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC }}>{pEntries.length > 0 ? `${pEntries.length} total` : ''}</span>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: mutedC }}>
+            {pTopRated.length > 0 ? `${pTopRated.length}${pTopCategory ? '' : ' total'}` : ''}
+          </span>
+        </div>
+        {/* Category filter chips */}
+        <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+          {[{ id: null, label: 'All' }, ...MINKO_CATEGORIES].map(c => {
+            const sel = pTopCategory === c.id;
+            const catColors = window.MINKO_CATEGORY_COLORS || {};
+            const chipColor = c.id ? (catColors[c.id] || accent) : accent;
+            return (
+              <button key={c.id ?? 'all'} onClick={() => setPTopCategory(sel ? null : c.id)} style={{
+                border: 'none', cursor: 'pointer', borderRadius: 999, flexShrink: 0,
+                fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '5px 13px',
+                background: sel ? chipColor : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.06)'),
+                color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.65)'),
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                transition: 'all 0.15s',
+              }}>
+                {c.id && <MinkoIcon name={c.id} size={12} color={sel ? 'white' : chipColor} strokeWidth={1.8}/>}
+                {c.label}
+              </button>
+            );
+          })}
         </div>
         <div style={{ padding: '0 16px 160px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {loading ? (
@@ -3291,10 +3317,14 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : null;
 
+  const [topCategory, setTopCategory] = useState2(null);
+
   const avgRating = entries.length > 0
     ? (entries.reduce((s, e) => s + (e.rating || 0), 0) / entries.length).toFixed(1)
     : '—';
-  const topRated = [...entries].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const topRated = [...entries]
+    .filter(e => !topCategory || e.category === topCategory)
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
   const mutedC = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelC = dark ? '#f5f1e8' : '#1a1a2e';
@@ -3419,9 +3449,32 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
       )}
 
       {/* Top rated */}
-      <div style={{ padding: '24px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <div style={{ padding: '24px 20px 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <div style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', fontStyle: 'italic' }}>Top rated</div>
-        <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>{entries.length > 0 ? `${entries.length} total` : ''}</span>
+        <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)' }}>
+          {topRated.length > 0 ? `${topRated.length}${topCategory ? '' : ' total'}` : ''}
+        </span>
+      </div>
+      {/* Category filter chips */}
+      <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+        {[{ id: null, label: 'All' }, ...MINKO_CATEGORIES].map(c => {
+          const sel = topCategory === c.id;
+          const catColors = window.MINKO_CATEGORY_COLORS || {};
+          const chipColor = c.id ? (catColors[c.id] || accent) : accent;
+          return (
+            <button key={c.id ?? 'all'} onClick={() => setTopCategory(sel ? null : c.id)} style={{
+              border: 'none', cursor: 'pointer', borderRadius: 999, flexShrink: 0,
+              fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '5px 13px',
+              background: sel ? chipColor : (dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.06)'),
+              color: sel ? 'white' : (dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.65)'),
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              transition: 'all 0.15s',
+            }}>
+              {c.id && <MinkoIcon name={c.id} size={12} color={sel ? 'white' : chipColor} strokeWidth={1.8}/>}
+              {c.label}
+            </button>
+          );
+        })}
       </div>
       <div style={{ padding: '0 16px 160px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {entries.length === 0 && (

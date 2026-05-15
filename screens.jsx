@@ -1043,6 +1043,22 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
           <span style={{ fontFamily: SANS, fontSize: 12, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>
             {entry.location} · {entry.date}
           </span>
+          {(entry.place || entry.location) && (() => {
+            const searchQuery = encodeURIComponent([entry.place, entry.location].filter(Boolean).join(', '));
+            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+            return (
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4,
+                padding: '5px 10px', borderRadius: 20,
+                background: dark ? 'rgba(255,255,255,0.09)' : 'rgba(20,30,60,0.07)',
+                fontFamily: SANS, fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.55)',
+              }}>
+                <MinkoIcon name="pin" size={13} color={dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.45)'} strokeWidth={1.8}/>
+                Maps
+              </a>
+            );
+          })()}
         </div>
 
         {entry.note && (

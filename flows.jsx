@@ -593,9 +593,10 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
             <h2 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 500, lineHeight: 1.05, margin: 0, flex: 1,
               color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.4 }}>{localItem.place}</h2>
             {(() => {
+              const searchQuery = encodeURIComponent([localItem.place, localItem.location].filter(Boolean).join(', '));
               const mapsUrl = localItem.google_place_id
-                ? `https://www.google.com/maps/place/?q=place_id:${localItem.google_place_id}`
-                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([localItem.place, localItem.location].filter(Boolean).join(', '))}`;
+                ? `https://www.google.com/maps/search/?api=1&query=${searchQuery}&query_place_id=${localItem.google_place_id}`
+                : `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
               return (
                 <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{
                   flexShrink: 0, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4,

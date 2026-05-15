@@ -1,6 +1,6 @@
 // screens.jsx — Minko screens: Home/Globe, Log Entry, Place Detail, Profile, Friends Globe
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 // ─────────────────────────────────────────────────────────────
 // Shared visual primitives
@@ -559,8 +559,21 @@ function MapFilterBar({ dark, accent, filterCategory, setFilterCategory, filterR
 // ─────────────────────────────────────────────────────────────
 // HOME / GLOBE SCREEN
 // ─────────────────────────────────────────────────────────────
+// Distinct palette for friend pin colors (up to 10 friends)
+const FRIEND_PIN_COLORS = [
+  '#e05c4b', // red-orange
+  '#4b9fe0', // sky blue
+  '#7ac97a', // green
+  '#c97ac9', // purple
+  '#e0b94b', // amber
+  '#4bc9c9', // teal
+  '#e07a4b', // orange
+  '#7a7ac9', // indigo
+  '#c9a07a', // tan
+  '#c94b7a', // rose
+];
+
 function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog, entries = [], friendEntries = [], user, onLogReview, onSaveWishlist, onNotifications, onMapLongPress }) {
-  const cat = window.MINKO_CATEGORY_COLORS || {};
   const [searchPin, setSearchPin] = useState(null);
   const [filterCategory, setFilterCategory] = useState(null);
   const [filterRating, setFilterRating] = useState(null);
@@ -571,6 +584,16 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
   const mutedText = dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.45)';
   const labelText = dark ? '#f5f1e8' : '#1a1a2e';
   const hasFilters = !!(filterOwnership !== 'all' || filterCategory || filterRating);
+
+  // Build a stable friend-id → color map based on sorted unique friend IDs
+  const friendColorMap = useMemo(() => {
+    const ids = [...new Set(friendEntries.map(e => e.user_id).filter(Boolean))].sort();
+    const map = {};
+    ids.forEach((id, i) => { map[id] = FRIEND_PIN_COLORS[i % FRIEND_PIN_COLORS.length]; });
+    return map;
+  }, [friendEntries]);
+
+  const myUserId = user?.id;
 
   const allEntries = [
     ...(filterOwnership !== 'friends' ? entries : []),
@@ -583,7 +606,7 @@ function HomeScreen({ accent, dark, variant, onPin, activePinId, navProps, onLog
   const pins = [
     ...filtered.filter(e => e.lon && e.lat).map(e => ({
       id: e.id, lon: e.lon, lat: e.lat,
-      color: cat[e.category] || accent,
+      color: e.user_id === myUserId ? accent : (friendColorMap[e.user_id] || accent),
     })),
     ...(searchPin ? [{ id: '__search__', lon: searchPin.lon, lat: searchPin.lat, color: accent }] : []),
   ];

@@ -2015,6 +2015,7 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   const [collError, setCollError] = useState2('');
   const [activeItem, setActiveItem] = useState2(null);
   const [visitedItem, setVisitedItem] = useState2(null);
+  const [deletingCollId, setDeletingCollId] = useState2(null);
 
   const refetch = () => {
     if (!user) return;
@@ -2073,6 +2074,15 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
   const openNewCollection = () => {
     setActiveItem(null); // close item sheet first
     setShowNewCollection(true);
+  };
+
+  const handleDeleteCollection = async (collId) => {
+    // Unassign all items in this collection, then delete the collection
+    await window.sb.from('wishlist').update({ collection_id: null }).eq('collection_id', collId);
+    await window.sb.from('wishlist_collections').delete().eq('id', collId);
+    if (activeCollection?.id === collId) setActiveCollection(null);
+    setDeletingCollId(null);
+    refetch();
   };
 
   const catColor = (cat) => (window.MINKO_CATEGORY_COLORS && window.MINKO_CATEGORY_COLORS[cat]) || accent;
@@ -2135,7 +2145,7 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
       pointerEvents: open ? 'auto' : 'none',
     }}>
       {/* Nav bar */}
-      <div style={{ padding: '58px 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: 'calc(var(--status-h, 44px) + env(safe-area-inset-top, 0px) + 10px) 16px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, border: 0, background: 'none', cursor: 'pointer', padding: '6px 4px 6px 0', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
           <MinkoIcon name="chevron-right" size={20} strokeWidth={2.2} style={{ transform: 'rotate(180deg)', display: 'block' }}/>
           <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 500 }}>Back</span>
@@ -2187,79 +2197,90 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
 
         {/* LIST TAB */}
         {tab === 'list' && (
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '4px 16px 100px' }}>
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+            {/* Collection filter tabs — horizontal scroll */}
+            <div style={{ flexShrink: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', padding: '8px 0 0' }}>
+              <div style={{ display: 'inline-flex', gap: 6, paddingLeft: 16, paddingRight: 16, alignItems: 'center' }}>
+                {/* All chip */}
+                <button onClick={() => setActiveCollection(null)} style={{
+                  display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 14px',
+                  borderRadius: 99, border: 0, cursor: 'pointer', flexShrink: 0,
+                  background: !activeCollection ? accent : (dark ? 'rgba(255,255,255,0.09)' : 'rgba(20,30,60,0.07)'),
+                  fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                  color: !activeCollection ? 'white' : (dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)'),
+                  transition: 'all 0.15s',
+                }}>All</button>
+
+                {/* One chip per collection */}
+                {collections.map(c => {
+                  const active = activeCollection?.id === c.id;
+                  const isDeleting = deletingCollId === c.id;
+                  return (
+                    <div key={c.id} style={{ position: 'relative', flexShrink: 0 }}>
+                      <button onClick={() => { setActiveCollection(active ? null : c); setDeletingCollId(null); }} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6, height: 32,
+                        paddingLeft: 10, paddingRight: isDeleting ? 6 : 14,
+                        borderRadius: 99, cursor: 'pointer',
+                        border: active ? `1.5px solid ${c.color}` : `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(20,30,60,0.12)'}`,
+                        background: active ? `${c.color}22` : (dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.04)'),
+                        fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                        color: active ? c.color : (dark ? 'rgba(255,255,255,0.65)' : 'rgba(20,20,30,0.6)'),
+                        transition: 'all 0.15s',
+                      }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }}/>
+                        {c.name}
+                      </button>
+                      {/* Delete ✕ button — shows on long-press / tap-hold, triggered by secondary tap when active */}
+                      {active && (
+                        isDeleting ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+                            <button onClick={() => handleDeleteCollection(c.id)} style={{
+                              height: 24, padding: '0 8px', borderRadius: 99, border: 0, cursor: 'pointer',
+                              background: '#e5534b', color: 'white', fontFamily: SANS, fontSize: 11, fontWeight: 700,
+                            }}>Delete</button>
+                            <button onClick={() => setDeletingCollId(null)} style={{
+                              height: 24, padding: '0 8px', borderRadius: 99, border: 0, cursor: 'pointer',
+                              background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.08)',
+                              color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(20,20,30,0.55)',
+                              fontFamily: SANS, fontSize: 11, fontWeight: 600,
+                            }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeletingCollId(c.id)} style={{
+                            position: 'absolute', top: -4, right: -4, width: 18, height: 18,
+                            borderRadius: '50%', border: 0, cursor: 'pointer',
+                            background: dark ? '#3a3c4e' : '#d8d4cc',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(20,20,30,0.6)',
+                          }}>
+                            <MinkoIcon name="close" size={9} strokeWidth={2.5}/>
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* + New collection button */}
+                <button onClick={() => setShowNewCollection(true)} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, height: 32, padding: '0 12px',
+                  borderRadius: 99, cursor: 'pointer', flexShrink: 0,
+                  border: `1.5px dashed ${dark ? 'rgba(255,255,255,0.22)' : 'rgba(20,30,60,0.2)'}`,
+                  background: 'transparent', fontFamily: SANS, fontSize: 13, fontWeight: 600,
+                  color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)',
+                }}>
+                  <MinkoIcon name="plus" size={12} strokeWidth={2.5} color={dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.45)'}/>
+                  New
+                </button>
+              </div>
+            </div>
+
+            {/* Items list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 100px' }}>
               {fetching && (
                 <div style={{ padding: '32px 0', textAlign: 'center', fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)' }}>Loading…</div>
               )}
-
-              {/* Collection drilldown header */}
-              {activeCollection && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingTop: 4 }}>
-                  <button onClick={() => setActiveCollection(null)} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 14px 7px 10px',
-                    borderRadius: 99, border: 0, cursor: 'pointer',
-                    background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(20,30,60,0.07)',
-                    fontFamily: SANS, fontSize: 14, fontWeight: 600,
-                    color: dark ? '#f5f1e8' : '#1a1a2e',
-                  }}>
-                    <MinkoIcon name="chevron-right" size={18} strokeWidth={2.2} color={dark ? '#f5f1e8' : '#1a1a2e'} style={{ transform: 'rotate(180deg)', display: 'block' }}/>
-                    All collections
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: activeCollection.color, display: 'inline-block' }}/>
-                    <span style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2 }}>{activeCollection.name}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Top-level: Collections grid */}
-              {!activeCollection && !fetching && (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <SectionLabel>Collections</SectionLabel>
-                    <button onClick={() => setShowNewCollection(true)} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
-                      borderRadius: 99, border: `1px solid ${accent}55`,
-                      background: `${accent}12`, cursor: 'pointer',
-                      fontFamily: SANS, fontSize: 12, fontWeight: 600, color: accent,
-                    }}>
-                      <MinkoIcon name="plus" size={12} color={accent} strokeWidth={2.5}/>
-                      New
-                    </button>
-                  </div>
-
-                  {collections.length === 0 ? (
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(20,20,30,0.35)', marginBottom: 6 }}>
-                      No collections yet — tap New to create one
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 }}>
-                      {collections.map(c => {
-                        const count = items.filter(w => w.collection_id === c.id).length;
-                        return (
-                          <button key={c.id} onClick={() => setActiveCollection(c)} style={{
-                            textAlign: 'left', border: 0, cursor: 'pointer', borderRadius: 16, overflow: 'hidden',
-                            background: dark ? 'rgba(255,255,255,0.05)' : 'white',
-                            boxShadow: dark ? 'none' : '0 1px 6px rgba(20,30,60,0.07)',
-                            outline: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(20,30,60,0.05)'}`,
-                          }}>
-                            <div style={{ height: 8, background: c.color }}/>
-                            <div style={{ padding: '10px 12px 12px' }}>
-                              <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 500, color: dark ? '#f5f1e8' : '#1a1a2e', letterSpacing: -0.2, lineHeight: 1.15 }}>{c.name}</div>
-                              <div style={{ fontFamily: SANS, fontSize: 11.5, color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(20,20,30,0.4)', marginTop: 4 }}>{count} {count === 1 ? 'place' : 'places'}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <SectionLabel>Saved Places</SectionLabel>
-                </>
-              )}
-
-              {/* Items list */}
               {!fetching && visibleItems.length === 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 12, textAlign: 'center' }}>
                   <MinkoIcon name="bookmark" size={34} color={accent} strokeWidth={1.3}/>
@@ -2269,7 +2290,6 @@ function WishlistOverlay({ open, onBack, dark, accent, user, refreshKey, onItemA
                   <div style={{ fontFamily: SANS, fontSize: 13.5, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(20,20,30,0.5)', lineHeight: 1.55 }}>Tap + to save a place you want to visit</div>
                 </div>
               )}
-
               {visibleItems.map(w => <ItemRow key={w.id} w={w}/>)}
             </div>
 

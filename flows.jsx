@@ -567,16 +567,16 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
           </div>
         )}
         {localItem.photos?.length > 1 && (
-          <div style={{ margin: '8px 0 0', overflowX: 'auto', display: 'flex', gap: 8,
-            scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ flexShrink: 0, width: 16 }}/>
-            {localItem.photos.map((url, i) => (
-              <div key={i} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
-                overflow: 'hidden', scrollSnapAlign: 'start' }}>
-                <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-              </div>
-            ))}
-            <div style={{ flexShrink: 0, width: 16 }}/>
+          <div style={{ margin: '8px 0 0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            <div style={{ display: 'inline-flex', gap: 8, paddingLeft: 16, paddingRight: 16,
+              scrollSnapType: 'x mandatory' }}>
+              {localItem.photos.map((url, i) => (
+                <div key={i} style={{ flexShrink: 0, width: 200, height: 175, borderRadius: 14,
+                  overflow: 'hidden', scrollSnapAlign: 'start' }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {!localItem.photos?.length && (

@@ -84,7 +84,13 @@ const EntryThumb = ({ entry, size = 60, radius = 10, dark, accent }) => {
   );
 
   useEffect(() => {
-    if (!entry || ownPhoto || !entry.place || !cacheKey) return;
+    // Own photo appeared — clear any cached Google photo so it never shows
+    if (ownPhoto) {
+      if (window._googlePhotoCache[cacheKey]) delete window._googlePhotoCache[cacheKey];
+      setGooglePhoto(null);
+      return;
+    }
+    if (!entry || !entry.place || !cacheKey) return;
     if (window._googlePhotoCache[cacheKey] !== undefined) {
       setGooglePhoto(window._googlePhotoCache[cacheKey] || null);
       return;
@@ -121,7 +127,7 @@ const EntryThumb = ({ entry, size = 60, radius = 10, dark, accent }) => {
     };
     if (window._gPlacesSvc) tryFetch();
     else { const t = setTimeout(tryFetch, 1500); return () => clearTimeout(t); }
-  }, [entry?.id]); // eslint-disable-line
+  }, [entry?.id, entry?.photos?.[0]]); // eslint-disable-line — re-run if own photo appears
 
   const src = ownPhoto || googlePhoto;
   if (src) return (
@@ -953,7 +959,7 @@ function PlaceDetailSheet({ entry, dark, accent, friendsAtPlace, onClose, friend
       const timer = setTimeout(tryFetch, 1500);
       return () => clearTimeout(timer);
     }
-  }, [entry?.id]); // eslint-disable-line
+  }, [entry?.id, entry?.photos?.length, entry?.videos?.length]); // eslint-disable-line
 
   useEffect(() => {
     setLiked(false);

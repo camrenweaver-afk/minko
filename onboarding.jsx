@@ -480,7 +480,7 @@ function WelcomeScreen({ dark, accent, onComplete, onSkip, needsName = false, us
               What's your<br/>name?
             </h1>
             <p style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 1.55, color: textMuted, margin: '0 0 28px' }}>
-              Your friends will see this when you share reviews.
+              Your friends will see this when you share memories.
             </p>
             <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
               <input

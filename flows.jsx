@@ -321,7 +321,7 @@ function EditItemFlow({ entry, tableKind, dark, accent, user, onClose, onConfirm
     <div style={{ padding: '4px 0 32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 16px' }}>
         <span style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 500, fontStyle: 'italic', color: dark ? '#f5f1e8' : '#1a1a2e' }}>
-          {isWishlist ? 'Edit wishlist item' : 'Edit entry'}
+          {isWishlist ? 'Edit wishlist item' : 'Edit memory'}
         </span>
         <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: 0,
           background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(20,30,60,0.06)', cursor: 'pointer',
@@ -552,7 +552,7 @@ function EditItemFlow({ entry, tableKind, dark, accent, user, onClose, onConfirm
 // ─────────────────────────────────────────────────────────────
 function DeleteConfirmSheet({ entry, tableKind, dark, accent, onClose, onConfirm }) {
   const [deleting, setDeleting] = useState2(false);
-  const label = tableKind === 'wishlist' ? 'wishlist item' : 'entry';
+  const label = tableKind === 'wishlist' ? 'wishlist item' : 'memory';
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -798,7 +798,7 @@ function WishlistItemSheet({ item, open, onBack, dark, accent, user, onDeleted, 
                   <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase',
                     color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(20,20,30,0.4)', marginBottom: 1 }}>Saved from</div>
                   <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: dark ? '#f5f1e8' : '#1a1a2e' }}>
-                    {localItem.friend_review_user}'s review
+                    {localItem.friend_review_user}'s memory
                   </div>
                 </div>
                 {localItem.friend_review_rating > 0 && (
@@ -1270,7 +1270,7 @@ function SaveToWishlistFlow({ dark, accent, user, onClose, onConfirm, initialPla
                 }
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(20,20,30,0.5)' }}>
-                    {sourceEntry._ownerProfile?.display_name || 'Friend'}'s review
+                    {sourceEntry._ownerProfile?.display_name || 'Friend'}'s memory
                   </span>
                 </div>
                 {sourceEntry.rating > 0 && (
@@ -2781,7 +2781,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
           </div>
 
           {[
-            { value: loading ? '…' : pEntries.length, label: pEntries.length === 1 ? 'review' : 'reviews', onClick: () => setShowReviews(true) },
+            { value: loading ? '…' : pEntries.length, label: pEntries.length === 1 ? 'memory' : 'memories', onClick: () => setShowReviews(true) },
             { value: loading ? '…' : (friendsCount ?? '…'), label: friendsCount === 1 ? 'friend' : 'friends', onClick: openFriendsList },
           ].map(({ value, label, onClick }) => (
             <button key={label} onClick={onClick} style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8, border: 0,
@@ -2879,7 +2879,7 @@ function FriendProfilePage({ profile, dark, accent, currentUserId, user, onBack,
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             </button>
             <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>
-              {profile.display_name?.split(' ')[0] || 'Their'}'s Reviews
+              {profile.display_name?.split(' ')[0] || 'Their'}'s Memories
             </span>
             <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC, paddingRight: 16 }}>{pEntries.length} total</span>
           </div>
@@ -3553,7 +3553,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
               <button onClick={closeReviews} style={{ border: 0, background: 'none', cursor: 'pointer', padding: '8px 10px', color: accent, display: 'flex', alignItems: 'center' }}>
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
-              <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Reviews</span>
+              <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: labelC, flex: 1 }}>My Memories</span>
               <span style={{ fontFamily: SANS, fontSize: 13, color: mutedC }}>
                 {filtered.length !== localEntries.length ? `${filtered.length} of ${localEntries.length}` : `${localEntries.length} total`}
               </span>
@@ -3599,7 +3599,7 @@ function ProfileScreen({ dark, accent, onPin, navProps, onLog, onSignOut, entrie
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 12px))' }}>
               {filtered.length === 0 ? (
                 <div style={{ padding: '48px 0', textAlign: 'center', fontFamily: SANS, fontSize: 14, color: mutedC }}>
-                  {localEntries.length === 0 ? 'No reviews yet' : 'No matches — try different filters'}
+                  {localEntries.length === 0 ? 'No memories yet' : 'No matches — try different filters'}
                 </div>
               ) : filtered.map((e, i, arr) => (
                 <button key={e.id} onClick={() => setViewingReview(e)} style={{
@@ -4075,14 +4075,14 @@ function FriendsScreen({ dark, accent, onPin, activePinId, navProps, onLog, user
           ) : feedEntries.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
               <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: labelText, marginBottom: 8 }}>
-                {friendships.length === 0 ? 'Add friends to see their reviews' : 'No reviews found'}
+                {friendships.length === 0 ? 'Add friends to see their memories' : 'No memories found'}
               </div>
               <div style={{ fontFamily: SANS, fontSize: 13, color: mutedText, lineHeight: 1.5 }}>
                 {friendships.length === 0
                   ? 'Search for people above to connect with friends.'
                   : hasFilters
                     ? 'Try adjusting your filters.'
-                    : "When your friends log reviews, they'll show up here."}
+                    : "When your friends log memories, they'll show up here."}
               </div>
             </div>
           ) : feedEntries.map((e, i) => {
@@ -4351,7 +4351,7 @@ function NotificationsPage({ dark, accent, user, onBack }) {
               <MinkoIcon name="bell" size={36} color={sub} strokeWidth={1.4}/>
               <div style={{ marginTop: 16, fontSize: 15, fontWeight: 600, color: text }}>No notifications yet</div>
               <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-                When friends like or comment on your reviews, you'll see it here.
+                When friends like or comment on your memories, you'll see it here.
               </div>
             </div>
           ) : (

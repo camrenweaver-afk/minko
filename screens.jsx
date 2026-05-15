@@ -576,7 +576,7 @@ function TopSearch({ dark, accent = '#4f5bd5', user, onLogReview, onSaveWishlist
               background: accent, color: 'white',
               fontFamily: SANS, fontSize: 15, fontWeight: 600, letterSpacing: 0.2,
               boxShadow: `0 4px 16px ${accent}44`,
-            }}>Log a review</button>
+            }}>Log a memory</button>
             <button onClick={handleWish} style={{
               height: 52, borderRadius: 16, border: 0, cursor: 'pointer',
               background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(20,30,60,0.05)',
